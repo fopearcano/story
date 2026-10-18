@@ -1,5 +1,6 @@
 // Story Builder server: static app, JSON story storage, optional AI routes.
 import express from 'express';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Storage, isValidId } from './server/storage.js';
@@ -8,8 +9,9 @@ import { sampleStory } from './public/js/sample.js';
 import { normalizeStory } from './public/js/model.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const PORT = Number(process.env.PORT || 4134);
-const HOST = process.env.HOST || '127.0.0.1';
+const PORT = Number(process.env.PORT || 4135);
+// 0.0.0.0 listens on every interface, so other devices on the LAN can connect.
+const HOST = process.env.HOST || '0.0.0.0';
 const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(here, 'data'));
 
 export async function createApp({ dataDir = DATA_DIR, seed = true } = {}) {
@@ -93,9 +95,24 @@ export async function createApp({ dataDir = DATA_DIR, seed = true } = {}) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { app } = await createApp();
-  app.listen(PORT, HOST, () => {
-    console.log(`Story Builder running at http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
+  const server = app.listen(PORT, HOST, () => {
+    const wildcard = HOST === '0.0.0.0' || HOST === '::';
+    console.log(`Story Builder running at http://${wildcard ? 'localhost' : HOST}:${PORT}`);
+    if (wildcard) {
+      for (const ip of lanAddresses()) console.log(`  on your network:  http://${ip}:${PORT}`);
+    }
     console.log(`Data directory: ${DATA_DIR}`);
     console.log(envHasKey() ? `AI: enabled (${AI_MODEL})` : 'AI: optional — set ANTHROPIC_API_KEY (or add a key in the app) to enable the AI partner.');
   });
+  server.on('error', (err) => {
+    console.error(err.code === 'EADDRINUSE' ? `Port ${PORT} is already in use. Set PORT to use another one.` : err.message);
+    process.exit(1);
+  });
+}
+
+// Non-internal IPv4 addresses of this machine, for the startup banner.
+function lanAddresses() {
+  return Object.values(os.networkInterfaces()).flat()
+    .filter((a) => a && a.family === 'IPv4' && !a.internal)
+    .map((a) => a.address);
 }

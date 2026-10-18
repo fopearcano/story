@@ -13,8 +13,18 @@ powered by Claude, helps you build characters.
 
 ```bash
 npm install
-npm start            # http://localhost:4134
+npm start            # http://localhost:4135
 ```
+
+The server listens on all network interfaces, so phones, tablets and other
+computers on the same LAN can use it too: on startup it prints the address to
+open (for example `http://192.168.1.20:4135`). If another device can't
+connect, allow incoming TCP connections on port 4135 in this machine's
+firewall. To keep it on this machine only, run `HOST=127.0.0.1 npm start`.
+
+There's no login. Anyone who can reach the server can read, edit and delete
+stories, and can use the AI partner with the server's `ANTHROPIC_API_KEY` if
+one is set. Run it only on a network you trust.
 
 Node 20 or later. There's no build step. The first run seeds a worked example,
 Dickens's *A Christmas Carol* (public domain), analysed with the full toolset,
@@ -104,8 +114,8 @@ Implementation notes (see `server/ai.js` and `server/prompts.js`):
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `PORT` | `4134` | HTTP port |
-| `HOST` | `127.0.0.1` | Bind address. Use `0.0.0.0` to expose it on your network |
+| `PORT` | `4135` | HTTP port |
+| `HOST` | `0.0.0.0` | Bind address. The default accepts connections from other devices on your network; use `127.0.0.1` for this machine only |
 | `DATA_DIR` | `./data` | Where stories and AI chats are stored as JSON files |
 | `ANTHROPIC_API_KEY` | — | Enables the AI partner for all users of this server |
 | `STORY_AI_MODEL` | `claude-opus-5-5` | Claude model for the AI partner |
