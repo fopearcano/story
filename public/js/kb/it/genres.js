@@ -136,8 +136,8 @@ export const GENRES = [
     conventions: ['Un mondo futuro documentato e coerente', 'Spesso individuo contro Stato + azione'], cliches: [],
   },
   {
-    id: 'sports', n: 22, name: 'Sport', group: 'supra', sub: [],
-    summary: 'Lo sport come crogiolo del cambiamento del personaggio: la casa delle trame di maturazione, redenzione, educazione, punitive e della prova.',
+    id: 'sports', n: 22, name: 'Film sportivo', group: 'supra', sub: [],
+    summary: 'Lo sport come crogiolo del cambiamento del personaggio: terreno ideale per le trame di maturazione, di redenzione, di educazione, punitive e della prova.',
     conventions: ['La grande partita / il grande evento', 'Un arco interiore incorniciato dalla competizione'], cliches: [],
   },
   {
@@ -151,7 +151,7 @@ export const GENRES = [
     conventions: ['Metamorfosi', 'Spesso farsa, grande avventura o maturazione'], cliches: [],
   },
   {
-    id: 'artfilm', n: 25, name: 'Film d’arte', group: 'supra', sub: ['Minimalismo', 'Antistruttura'],
+    id: 'artfilm', n: 25, name: 'Cinema d’autore', group: 'supra', sub: ['Minimalismo', 'Antistruttura'],
     summary: 'Un genere tradizionale a pieno titolo, la cui grande convenzione è l’anticonvenzionalità.',
     conventions: ['Celebrazione del cerebrale; l’atmosfera prima dell’emozione forte', 'Enigmi e tensioni irrisolte che invitano all’interpretazione'], cliches: [],
   },
