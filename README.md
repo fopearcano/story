@@ -4,8 +4,10 @@ An interactive, infographic fiction story builder grounded in Robert McKee's
 *Story: Substance, Structure, Style, and the Principles of Screenwriting*
 (the book is in [`docs/`](docs/)). Every tool maps to a principle from the
 book, every principle links back to the tool where you apply it, and a
-**Story Doctor** checks your draft against them. An **optional AI partner**,
-powered by Claude, helps you build characters.
+**Story Doctor** checks your draft against them. An **optional AI partner**
+helps you build characters, powered by Claude or the model of your choice:
+OpenAI, OpenRouter, Gemini, Mistral, Groq, DeepSeek, xAI, or a model running
+on your own computer through Ollama, LM Studio or llama.cpp.
 
 Available in **English** and **Italian** — *[leggi in italiano](README.it.md)*.
 
@@ -25,22 +27,31 @@ connect, allow incoming TCP connections on port 4135 in this machine's
 firewall. To keep it on this machine only, run `HOST=127.0.0.1 npm start`.
 
 There's no login. Anyone who can reach the server can read, edit and delete
-stories, and can use the AI partner with the server's `ANTHROPIC_API_KEY` if
-one is set. Run it only on a network you trust.
+stories, and can use the AI partner with the server's API keys if any are
+set. Browsers can also choose the AI provider and its server address, which
+makes this server send requests to that address. Run it only on a network you
+trust, or set `STORY_AI_ALLOW_CLIENT_CONFIG=false` to fix the provider on the
+server.
 
 Node 20 or later. There's no build step. The first run seeds a worked example,
 Dickens's *A Christmas Carol* (public domain), analysed with the full toolset,
 so every view has something to show. Copy it to experiment, or start a new
 story from the home screen.
 
-To enable the AI partner:
+To enable the AI partner, give the server a key for any provider, or point it
+at a local model:
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-... npm start
+ANTHROPIC_API_KEY=sk-ant-... npm start                  # Claude
+OPENAI_API_KEY=sk-... npm start                         # OpenAI
+OPENROUTER_API_KEY=sk-or-... npm start                  # OpenRouter
+STORY_AI_PROVIDER=ollama STORY_AI_MODEL=qwen3 npm start # Ollama on this machine
 ```
 
-You can also paste a key into the app's **AI partner → settings** panel. That
-key is stored in your browser and forwarded by this server only.
+Or do it from the app: **AI partner → settings** (the sliders button) lets each
+browser pick a provider, paste a key, set a local server's address and load
+its list of models. Keys are stored in that browser and forwarded by this
+server only.
 
 ## What's inside
 
@@ -105,7 +116,7 @@ the English version.
 
 ## The AI partner (optional)
 
-Everything works without AI. With a key configured:
+Everything works without AI. With a provider configured:
 
 - **Character builder (agent).** Open it from the top bar or from any
   character ("Develop with AI"). It's a streaming tool-use agent that reads
@@ -122,16 +133,52 @@ Everything works without AI. With a key configured:
   Idea, worst/best inciting incidents, Crisis dilemmas, cast polarization,
   and a consultation on the Story Doctor findings. These are suggestions only.
 
-Implementation notes (see `server/ai.js` and `server/prompts.js`):
+### Providers
 
-- Uses the official `@anthropic-ai/sdk` with model `claude-opus-5-5`,
-  adaptive thinking, effort `medium` and streaming. The system prompt is
-  stable and prompt-cached.
+| Provider | Server key | Default model | Notes |
+|---|---|---|---|
+| Anthropic (Claude) | `ANTHROPIC_API_KEY` | `claude-opus-5-5` | Native API: adaptive thinking, prompt caching, refusal fallbacks |
+| OpenAI | `OPENAI_API_KEY` | `gpt-5` | |
+| OpenRouter | `OPENROUTER_API_KEY` | `openrouter/auto` | Hundreds of models with one key (`company/model` ids) |
+| Google Gemini | `GEMINI_API_KEY` | `gemini-flash-latest` | Through Gemini's OpenAI-compatible endpoint |
+| Mistral AI | `MISTRAL_API_KEY` | `mistral-large-latest` | |
+| Groq | `GROQ_API_KEY` | `openai/gpt-oss-120b` | |
+| DeepSeek | `DEEPSEEK_API_KEY` | `deepseek-chat` | |
+| xAI (Grok) | `XAI_API_KEY` | `grok-4` | |
+| Ollama | — (`OLLAMA_BASE_URL`) | first installed model | `http://localhost:11434/v1` |
+| LM Studio | — (`LMSTUDIO_BASE_URL`) | first loaded model | `http://localhost:1234/v1` |
+| llama.cpp server | — (`LLAMACPP_BASE_URL`) | the loaded model | `http://localhost:8080/v1`; start it with `--jinja` for tool use |
+| Other OpenAI-compatible | `STORY_AI_API_KEY` (optional) | — | `STORY_AI_BASE_URL`: vLLM, LocalAI, Jan, Together, Fireworks… |
+
+Cloud model names change often: the defaults are starting points, and
+**Load models** in the settings lists what the provider actually offers.
+"Local" means local to the computer running Story Builder, so `localhost`
+is that machine, also when you use the app from a phone on your network.
+
+Proposal cards need a model that supports tool calling (function calling).
+Most cloud models do, and so do many local ones (Qwen 3, Llama 3.1+,
+Mistral…). If a model rejects tools, the partner says so and carries on as a
+plain conversation, with the story overview in its instructions.
+
+Implementation notes (see `server/ai.js`, `server/llm/` and `server/prompts.js`):
+
+- Claude goes through the official `@anthropic-ai/sdk` with adaptive
+  thinking, effort `medium` and streaming. The system prompt is stable and
+  prompt-cached.
+- Every other provider goes through one adapter for the OpenAI Chat
+  Completions API (streaming, tool calls, reasoning text where the server
+  sends it), written with plain `fetch` so it also copes with small local
+  servers: no model chosen (the first one listed is used), no tool support,
+  replies that ignore streaming.
+- Conversations are stored in one canonical format (Anthropic content
+  blocks) and converted per request, so a chat can continue on a different
+  provider.
 - Server-side refusal fallbacks are on (`fallbacks: "default"`), so if the
   model declines a request for policy reasons, the API retries it on
   Anthropic's recommended fallback model.
 - Conversation history is append-only and stores full content blocks, so
-  thinking and tool blocks are passed back unchanged.
+  Claude's thinking and tool blocks are passed back unchanged (other
+  providers get text and tool calls only).
 - Tool inputs are streamed (`eager_input_streaming`) and validated
   server-side before a proposal is shown (unknown fields dropped, numbers
   clamped).
@@ -143,10 +190,13 @@ Implementation notes (see `server/ai.js` and `server/prompts.js`):
 | `PORT` | `4135` | HTTP port |
 | `HOST` | `0.0.0.0` | Bind address. The default accepts connections from other devices on your network; use `127.0.0.1` for this machine only |
 | `DATA_DIR` | `./data` | Where stories and AI chats are stored as JSON files |
-| `ANTHROPIC_API_KEY` | — | Enables the AI partner for all users of this server |
-| `STORY_AI_MODEL` | `claude-opus-5-5` | Claude model for the AI partner |
-| `STORY_AI_EFFORT` | `medium` | `low` / `medium` / `high` / `xhigh` / `max` |
-| `STORY_AI_ALLOW_CLIENT_KEY` | `true` | Set `false` to forbid keys supplied from the browser |
+| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, … | — | Provider keys (see [Providers](#providers)); each one enables that provider for all users of this server |
+| `STORY_AI_PROVIDER` | first provider with a key | Default provider: `anthropic`, `openai`, `openrouter`, `gemini`, `mistral`, `groq`, `deepseek`, `xai`, `ollama`, `lmstudio`, `llamacpp`, `custom` |
+| `STORY_AI_MODEL` | the provider's default | Model for the default provider |
+| `OLLAMA_BASE_URL`, `LMSTUDIO_BASE_URL`, `LLAMACPP_BASE_URL` | standard local ports | Where a local server listens, if not on this machine's default port |
+| `STORY_AI_BASE_URL`, `STORY_AI_API_KEY` | — | Any other OpenAI-compatible endpoint (provider `custom`) |
+| `STORY_AI_EFFORT` | `medium` | Claude only: `low` / `medium` / `high` / `xhigh` / `max` |
+| `STORY_AI_ALLOW_CLIENT_CONFIG` | `true` | Set `false` to ignore provider, key, server address and model sent from browsers and always use the server's settings (`STORY_AI_ALLOW_CLIENT_KEY=false` still works too) |
 
 ## Project layout
 
@@ -154,6 +204,7 @@ Implementation notes (see `server/ai.js` and `server/prompts.js`):
 server.js               Express app: static files, story API, AI routes
 server/storage.js       JSON-file storage (atomic writes, id validation)
 server/ai.js            Agent loop, tools, assists, SSE streaming
+server/llm/             AI providers: registry, Claude adapter, OpenAI-compatible adapter
 server/prompts.js       System prompts and assist task templates
 public/index.html       App shell (Preact + htm, vendored, no build step)
 public/js/model.js      Story schema, normalization, derived data (acts, timeline…)
@@ -181,10 +232,11 @@ npm test
 
 The suite covers the model, the Story Doctor, proposal validation, export,
 the HTTP API, translations (missing keys, data parity with English, language
-handling on the server), and the full AI agent loop against a local mock of
-the Claude streaming API. The agent tests check tool calls, validation, append-only
-history, error handling and request shape; no key or network access is
-needed.
+handling on the server), and the full AI agent loop against local mocks of
+the Claude API and of an OpenAI-compatible server. The agent tests check tool
+calls, validation, append-only history, moving a conversation between
+providers, models without tool support, error handling and request shape; no
+key or network access is needed.
 
 ## About the source
 

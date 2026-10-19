@@ -4,8 +4,10 @@ Uno strumento interattivo e visivo per progettare storie di finzione, fondato
 su *Story* di Robert McKee (*Substance, Structure, Style, and the Principles
 of Screenwriting*). Ogni strumento applica un principio del libro, ogni
 principio rimanda allo strumento in cui lo metti in pratica, e uno **Story
-Doctor** controlla la tua bozza. Un **partner IA facoltativo**, basato su
-Claude, ti aiuta a costruire i personaggi.
+Doctor** controlla la tua bozza. Un **partner IA facoltativo** ti aiuta a
+costruire i personaggi, con Claude o con il modello che preferisci: OpenAI,
+OpenRouter, Gemini, Mistral, Groq, DeepSeek, xAI, oppure un modello che gira
+sul tuo computer con Ollama, LM Studio o llama.cpp.
 
 *[Read in English](README.md)*
 
@@ -25,8 +27,11 @@ altro dispositivo non si collega, consenti le connessioni TCP in entrata sulla
 porta 4135 nel firewall. Per limitarlo a questo computer: `HOST=127.0.0.1 npm start`.
 
 Non c’è login: chiunque raggiunga il server può leggere, modificare ed
-eliminare le storie e usare il partner IA con la chiave del server, se è
-impostata. Usalo solo su una rete di cui ti fidi.
+eliminare le storie e usare il partner IA con le chiavi del server, se sono
+impostate. Dal browser si può anche scegliere il fornitore di IA e il suo
+indirizzo, e il server invierà le richieste a quell’indirizzo. Usalo solo su
+una rete di cui ti fidi, oppure imposta `STORY_AI_ALLOW_CLIENT_CONFIG=false`
+per fissare il fornitore sul server.
 
 ## Lingua
 
@@ -47,15 +52,36 @@ minitrama, antitrama, semina e raccolta…
 
 ## Partner IA (facoltativo)
 
-Tutto funziona anche senza IA. Per attivarla:
+Tutto funziona anche senza IA. Per attivarla, dai al server la chiave di un
+fornitore oppure collegalo a un modello locale:
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-... npm start
+ANTHROPIC_API_KEY=sk-ant-... npm start                  # Claude
+OPENAI_API_KEY=sk-... npm start                         # OpenAI
+OPENROUTER_API_KEY=sk-or-... npm start                  # OpenRouter
+STORY_AI_PROVIDER=ollama STORY_AI_MODEL=qwen3 npm start # Ollama su questo computer
 ```
 
-oppure incolla una chiave nelle impostazioni del **partner IA** (resta nel tuo
-browser e viene inoltrata solo da questo server). Con l’interfaccia in
-italiano, Claude risponde in italiano e usa gli stessi termini dell’app.
+Oppure dall’app: **Partner IA → impostazioni** (il pulsante con i cursori)
+permette a ogni browser di scegliere il fornitore, incollare una chiave,
+indicare l’indirizzo di un server locale e caricare l’elenco dei modelli. Le
+chiavi restano nel browser e vengono inoltrate solo da questo server. Con
+l’interfaccia in italiano, il modello risponde in italiano e usa gli stessi
+termini dell’app.
+
+Fornitori: Anthropic (Claude), OpenAI, OpenRouter, Google Gemini, Mistral AI,
+Groq, DeepSeek, xAI (Grok); in locale Ollama (`http://localhost:11434/v1`),
+LM Studio (`http://localhost:1234/v1`), il server di llama.cpp
+(`http://localhost:8080/v1`, avvialo con `--jinja`) e qualsiasi altro server
+compatibile con OpenAI (vLLM, LocalAI, Jan…). “Locale” vuol dire sul computer
+su cui gira Story Builder: `localhost` è quel computer, anche se usi l’app da
+un telefono in rete. I nomi dei modelli cloud cambiano spesso: **Carica i
+modelli** mostra quelli davvero disponibili.
+
+Le schede di proposta richiedono un modello che supporti gli strumenti
+(*tool calling*): quasi tutti i modelli cloud e molti modelli locali (Qwen 3,
+Llama 3.1+, Mistral…). Se un modello non li supporta, il partner te lo dice e
+prosegue come semplice conversazione.
 
 - **Costruttore di personaggi (agente).** Legge la tua storia, ti intervista,
   trova contraddizioni e desideri inconsci, progetta dilemmi che rivelano il
@@ -71,9 +97,13 @@ italiano, Claude risponde in italiano e usa gli stessi termini dell’app.
 ## Configurazione
 
 Le variabili d’ambiente sono le stesse della versione inglese: `PORT` (4135),
-`HOST` (0.0.0.0), `DATA_DIR` (`./data`), `ANTHROPIC_API_KEY`,
-`STORY_AI_MODEL`, `STORY_AI_EFFORT`, `STORY_AI_ALLOW_CLIENT_KEY`. Vedi il
-[README inglese](README.md#configuration) per i dettagli.
+`HOST` (0.0.0.0), `DATA_DIR` (`./data`), le chiavi dei fornitori
+(`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `GEMINI_API_KEY`…),
+`STORY_AI_PROVIDER`, `STORY_AI_MODEL`, gli indirizzi dei server locali
+(`OLLAMA_BASE_URL`, `LMSTUDIO_BASE_URL`, `LLAMACPP_BASE_URL`),
+`STORY_AI_BASE_URL` / `STORY_AI_API_KEY`, `STORY_AI_EFFORT`,
+`STORY_AI_ALLOW_CLIENT_CONFIG`. Vedi il [README inglese](README.md#configuration)
+per i dettagli.
 
 ## Sul testo di McKee
 

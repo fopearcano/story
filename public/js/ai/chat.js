@@ -6,7 +6,7 @@ import { useStory } from '../store.js';
 import { useApp } from '../appctx.js';
 import { Btn, Icon, Select } from '../ui.js';
 import { markdownToHtml } from '../markdown.js';
-import { AiSetup, aiAvailable } from './setup.js';
+import { AiSettings, aiAvailable, aiInUse } from './setup.js';
 import { applyCharacterProposal, applySceneProposal, describeCharacterProposal, ROLE_NAMES } from './apply.js';
 import { t } from '../i18n.js';
 
@@ -53,9 +53,11 @@ export function ChatDrawer({ focusId, seedPrompt, onClose, onFocusChange }) {
   const [status, setStatus] = useState('');
   const [thinking, setThinking] = useState('');
   const [err, setErr] = useState('');
+  const [settings, setSettings] = useState(false);
   const ctrl = useRef(null);
   const bodyRef = useRef(null);
   const ready = aiAvailable(ai);
+  const inUse = aiInUse(ai);
   const focus = story.characters.find((c) => c.id === focusId) || null;
   const prot = story.characters.find((c) => c.role === 'protagonist');
 
@@ -106,6 +108,7 @@ export function ChatDrawer({ focusId, seedPrompt, onClose, onFocusChange }) {
           setProposals((p) => ({ ...p, [data.id]: data }));
           patchLast((m) => m.parts.push({ type: 'proposal', id: data.id }));
         } else if (ev === 'error') patchLast((m) => m.parts.push({ type: 'error', text: data.message }));
+        else if (ev === 'notice') patchLast((m) => m.parts.push({ type: 'notice', text: data.text }));
       }, { signal: ctrl.current.signal });
     } catch (e) {
       if (e.name !== 'AbortError') setErr(e.message);
@@ -133,9 +136,11 @@ export function ChatDrawer({ focusId, seedPrompt, onClose, onFocusChange }) {
     <div class="drawer-head">
       <div class="row">
         <span class="drawer-title grow"><${Icon} name="spark" /> ${t('AI partner')} <span class="muted small" style="font-weight:400">· ${t('character builder')}</span></span>
+        ${ready && html`<button class=${cx('icon-btn', settings && 'on')} onClick=${() => setSettings(!settings)} title=${t('AI settings')} aria-pressed=${settings}><${Icon} name="sliders" /></button>`}
         <button class="icon-btn" onClick=${onClose} title=${t('Close')}><${Icon} name="close" /></button>
       </div>
-      ${ready && html`<div class="row">
+      ${ready && inUse.provider && html`<div class="tiny muted drawer-model">${inUse.provider.label}${inUse.model ? ` · ${inUse.model}` : ` · ${t('first available model')}`}</div>`}
+      ${ready && !settings && html`<div class="row">
         <${Select} class="grow" value=${focusId || ''} onChange=${(v) => onFocusChange && onFocusChange(v)}
           options=${[{ id: '', label: t('Whole cast') }, ...story.characters.map((c) => ({ id: c.id, label: `${c.name || t('Unnamed')} (${ROLE_NAMES[c.role] || c.role})` }))]} />
         <${Select} class="grow" value=${chatId} onChange=${openChat}
@@ -143,7 +148,7 @@ export function ChatDrawer({ focusId, seedPrompt, onClose, onFocusChange }) {
       </div>`}
     </div>
     <div class="drawer-body" ref=${bodyRef}>
-      ${!ready ? html`<${AiSetup} />` : html`
+      ${!ready || settings ? html`<${AiSettings} onSaved=${() => setSettings(false)} onCancel=${settings ? () => setSettings(false) : null} />` : html`
         ${!display.length && html`<div class="callout">
           <b>${focus ? t('Developing {name}', { name: focus.name || t('this character') }) : t('Your dramaturg')}</b>
           <p>${t('Ask for an interview, a contradiction, an unconscious desire, a dilemma that reveals true character, or a cast designed around your protagonist. Proposed changes appear as cards — nothing changes until you accept.')}</p>
@@ -153,6 +158,7 @@ export function ChatDrawer({ focusId, seedPrompt, onClose, onFocusChange }) {
             if (p.type === 'text') return html`<div class="prose" dangerouslySetInnerHTML=${{ __html: markdownToHtml(p.text) }} />`;
             if (p.type === 'proposal') return proposals[p.id] ? html`<${ProposalCard} p=${proposals[p.id]} story=${story} onDecide=${decide} />` : null;
             if (p.type === 'error') return html`<p class="err">${p.text}</p>`;
+            if (p.type === 'notice') return html`<div class="callout tiny">${p.text}</div>`;
             return null;
           })}
         </div>`)}
@@ -160,7 +166,7 @@ export function ChatDrawer({ focusId, seedPrompt, onClose, onFocusChange }) {
         ${err && html`<p class="err">${err}</p>`}
       `}
     </div>
-    ${ready && html`<div class="drawer-foot">
+    ${ready && !settings && html`<div class="drawer-foot">
       ${!busy && html`<div class="quick">${quickPrompts(focus, prot).slice(0, 4).map((q) => html`<button onClick=${() => send(q)}>${q.length > 52 ? `${q.slice(0, 50)}…` : q}</button>`)}</div>`}
       <div class="composer">
         <textarea rows="2" placeholder=${focus ? t('Ask about {name}…', { name: focus.name || t('this character') }) : t('Ask about your characters…')} value=${input}

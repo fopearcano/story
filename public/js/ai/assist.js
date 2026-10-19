@@ -5,7 +5,7 @@ import { Btn, Modal } from '../ui.js';
 import { useStory } from '../store.js';
 import { useApp } from '../appctx.js';
 import { markdownToHtml } from '../markdown.js';
-import { AiSetup, aiAvailable } from './setup.js';
+import { AiSettings, aiAvailable } from './setup.js';
 import { t } from '../i18n.js';
 
 export function AssistButton({ task, label, sceneId, input, small = true, title }) {
@@ -43,7 +43,7 @@ function AssistModal({ task, label, sceneId, input, onClose }) {
   useEffect(() => { if (ready) run(); return () => ctrl.current && ctrl.current.abort(); }, [ready]);
 
   return html`<${Modal} title=${label} onClose=${onClose} wide>
-    ${!ready ? html`<${AiSetup} />` : html`<div class="stack">
+    ${!ready ? html`<${AiSettings} />` : html`<div class="stack">
       ${state === 'running' && !text && html`<div class="thinking-line"><span class="pulse" />${t('Thinking about your story…')}</div>`}
       <div class="prose assist-out" dangerouslySetInnerHTML=${{ __html: markdownToHtml(text) }} />
       ${err && html`<p class="err">${err}</p>`}

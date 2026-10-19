@@ -1,52 +1,24 @@
-// Optional AI features, powered by the Claude API:
+// Optional AI features:
 //  - a character-building agent (streaming tool-use loop, proposals the writer
 //    accepts or rejects), and
 //  - one-shot "assist" tasks (brainstorms, scene analysis, consultations).
-// Everything degrades gracefully when no API key is configured.
+// Claude or any OpenAI-compatible provider, cloud or local (see llm/). Everything
+// degrades gracefully when no provider is configured.
 import express from 'express';
-import Anthropic from '@anthropic-ai/sdk';
 import { CHARACTER_AGENT_SYSTEM, ASSIST_SYSTEM, ASSIST_TASKS, withLanguage } from './prompts.js';
 import { validateCharacterProposal, validateSceneProposal } from '../public/js/ai/apply.js';
 import { storyDigest, uid, sceneIndex } from '../public/js/model.js';
 import { diagnose } from '../public/js/doctor.js';
 import { tl } from '../public/js/i18n.js';
+import { llmFor, LLMError, describeLLMError, providerStatus, defaultProvider, defaultModel } from './llm/index.js';
 
-export const AI_MODEL = process.env.STORY_AI_MODEL || 'claude-opus-5-5';
-const EFFORT = process.env.STORY_AI_EFFORT || 'medium';
 const MAX_AGENT_TURNS = 10;
-const ALLOW_CLIENT_KEY = process.env.STORY_AI_ALLOW_CLIENT_KEY !== 'false';
 
-// Models that accept `fallbacks: "default"` and `thinking.display: "updates"`.
-const FALLBACK_MODELS = new Set(['claude-opus-5-5', 'claude-opus-5', 'claude-fable-5-1', 'claude-sonnet-5-5']);
-const UPDATES_MODELS = new Set(['claude-opus-5-5', 'claude-fable-5-1', 'claude-fable-5', 'claude-sonnet-5-5']);
-
-export function envHasKey() {
-  return Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
-}
-
-function clientFor(req, options = {}) {
-  const headerKey = req.get('x-anthropic-api-key');
-  if (headerKey && ALLOW_CLIENT_KEY) return new Anthropic({ apiKey: headerKey.trim(), ...options });
-  if (envHasKey()) return new Anthropic(options);
-  return null;
-}
-
-// Request parameters shared by the agent and the assists.
-function baseParams({ display }) {
-  const betas = [];
-  const params = { model: AI_MODEL, output_config: { effort: EFFORT } };
-  if (FALLBACK_MODELS.has(AI_MODEL)) {
-    betas.push('server-side-fallback-2026-07-01');
-    params.fallbacks = 'default';
-  }
-  if (display === 'updates' && UPDATES_MODELS.has(AI_MODEL)) {
-    betas.push('thinking-display-updates-2026-08-18');
-    params.thinking = { type: 'adaptive', display: 'updates' };
-  } else {
-    params.thinking = { type: 'adaptive', display: display === 'updates' ? 'summarized' : 'omitted' };
-  }
-  if (betas.length) params.betas = betas;
-  return params;
+// Provider and model the server uses by default (for the startup banner and /health).
+export function aiSummary() {
+  const s = providerStatus();
+  const p = defaultProvider();
+  return { provider: p.id, label: p.label, model: defaultModel(p) || '(first available)', configured: s.configured };
 }
 
 function openSse(res) {
@@ -60,16 +32,12 @@ function openSse(res) {
   return (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
-// Messages shown to the writer, in their interface language.
-function describeError(err, lang) {
-  if (err instanceof Anthropic.AuthenticationError) return tl(lang, 'The API key was rejected. Check it in AI settings.');
-  if (err instanceof Anthropic.PermissionDeniedError) return tl(lang, 'This API key is not allowed to use the configured model.');
-  if (err instanceof Anthropic.NotFoundError) return tl(lang, 'Model "{model}" was not found for this key.', { model: AI_MODEL });
-  if (err instanceof Anthropic.RateLimitError) return tl(lang, 'Rate limited by the API — wait a moment and try again.');
-  if (err instanceof Anthropic.BadRequestError) return tl(lang, 'The API rejected the request: {message}', { message: err.message });
-  if (err instanceof Anthropic.APIConnectionError) return tl(lang, 'Could not reach the Claude API (network error).');
-  if (err instanceof Anthropic.APIError) return tl(lang, 'Claude API error {status}: {message}', { status: err.status ?? '', message: err.message });
-  return err?.message || String(err);
+// Why the request can't reach a provider, for a 503 response.
+function configError({ error, cfg }, lang) {
+  const p = cfg.provider;
+  if (error === 'invalid-url') return tl(lang, 'The server address must start with http:// or https://.');
+  if (error === 'no-url') return tl(lang, 'Set the server address for {provider} in AI settings.', { provider: p.short });
+  return tl(lang, 'Add an API key for {provider} in AI settings, or set {env} on the server.', { provider: p.short, env: p.keyEnv[0] });
 }
 
 // ---- Agent tools -------------------------------------------------------------
@@ -193,6 +161,7 @@ function characterReport(story, c) {
 }
 
 async function runTool(name, input, ctx) {
+  if (input && '__invalid_json' in input) return { content: JSON.stringify({ INVALID_INPUT: 'The arguments were not valid JSON. Send the call again with a JSON object.' }), isError: true };
   const story = await ctx.storage.getStory(ctx.chat.storyId);
   if (!story) return { content: 'The story no longer exists.', isError: true };
   switch (name) {
@@ -232,57 +201,80 @@ async function runTool(name, input, ctx) {
   }
 }
 
-class TruncatedToolInput extends Error {}
+// Without tools the model can't read the story itself, so it gets the overview
+// (and the character in focus) in the system prompt instead.
+async function storyContext(ctx) {
+  const story = await ctx.storage.getStory(ctx.chat.storyId);
+  if (!story) return '';
+  const focus = story.characters.find((c) => c.id === ctx.chat.characterId);
+  return [
+    'Tools are not available with this model: you cannot call functions or create proposal cards, and nothing you write changes the story. When you suggest changes, present them clearly so the writer can copy them into the app themselves.',
+    `Current story:\n${storyDigest(story, { lang: ctx.lang })}`,
+    focus && `Character in focus:\n${characterReport(story, focus)}`,
+  ].filter(Boolean).join('\n\n');
+}
 
-// Streaming manual tool-use loop. Appends to chat.messages (append-only, full
-// content blocks including thinking/fallback blocks) and streams UI events.
-async function runAgent({ client, chat, storage, emit, signal, lang }) {
+// Streaming manual tool-use loop over any provider. Appends to chat.messages
+// (append-only, canonical content blocks; Claude's thinking blocks are kept
+// as returned) and streams UI events.
+async function runAgent({ llm, chat, storage, emit, signal, lang }) {
   const ctx = { chat, storage, emit, lang };
-  let jsonRetries = 0;
+  await llm.prepare(signal);
+  let tools = llm.supportsTools() ? TOOLS : null;
+  let retries = 0;
   for (let turn = 0; turn < MAX_AGENT_TURNS; turn++) {
-    let message;
+    const base = withLanguage(CHARACTER_AGENT_SYSTEM, lang);
+    const system = tools ? base : `${base}\n\n${await storyContext(ctx)}`;
+    let res;
     try {
-      const stream = client.beta.messages.stream({
-        ...baseParams({ display: 'updates' }),
-        max_tokens: 64000,
-        cache_control: { type: 'ephemeral' },
-        system: withLanguage(CHARACTER_AGENT_SYSTEM, lang),
-        tools: TOOLS,
-        messages: chat.messages,
-      }, { signal });
-      stream.on('text', (delta) => emit('text', { text: delta }));
-      stream.on('thinking', (delta) => { if (delta) emit('thinking', { text: delta }); });
-      stream.on('contentBlock', (block) => { if (block.type === 'tool_use') emit('tool', { name: block.name }); });
-      message = await stream.finalMessage();
-      jsonRetries = 0;
+      res = await llm.agentTurn({
+        system, tools, messages: chat.messages, signal,
+        onText: (text) => emit('text', { text }),
+        onThinking: (text) => emit('thinking', { text }),
+        onTool: (name) => emit('tool', { name }),
+      });
+      retries = 0;
     } catch (err) {
-      // A tool input that could not be parsed as JSON rejects the stream; re-issue
-      // the same turn (nothing was appended). API errors are surfaced as-is.
-      if (err instanceof Anthropic.APIError || signal.aborted || jsonRetries++ >= 2) throw err;
-      emit('status', { text: tl(lang, 'Retrying a malformed tool call…') });
-      continue;
+      if (signal.aborted) throw err;
+      // A model without tool support: carry on as a plain conversation.
+      if (err instanceof LLMError && err.kind === 'tools_unsupported' && tools) {
+        llm.markNoTools();
+        tools = null;
+        emit('notice', { text: tl(lang, '{model} can’t use tools, so it reads the story from a summary and can’t make proposal cards. For proposals, pick a model with tool support.', { model: llm.model }) });
+        continue;
+      }
+      // A tool input that wasn't valid JSON: re-issue the same turn (nothing was appended).
+      if (err instanceof LLMError && err.kind === 'malformed' && retries++ < 2) {
+        emit('status', { text: tl(lang, 'Retrying a malformed tool call…') });
+        continue;
+      }
+      throw err;
     }
 
-    if (message.stop_reason === 'refusal') {
-      emit('error', { message: tl(lang, 'Claude declined to continue this request.') });
+    if (res.stop === 'refusal') {
+      emit('error', { message: tl(lang, '{name} declined to continue this request.', { name: llm.label }) });
       return;
     }
-    const toolUses = message.content.filter((b) => b.type === 'tool_use');
-    if (message.stop_reason === 'max_tokens' && toolUses.length) throw new TruncatedToolInput('The reply was cut off mid tool call (max_tokens).');
+    const toolUses = res.content.filter((b) => b.type === 'tool_use');
+    if (res.stop === 'max_tokens' && toolUses.length) throw new LLMError('truncated', 'The reply was cut off mid tool call (max_tokens).');
+    if (!res.content.length) {
+      emit('error', { message: tl(lang, 'The model returned an empty reply.') });
+      return;
+    }
 
-    chat.messages.push({ role: 'assistant', content: message.content });
-    if (message.stop_reason === 'pause_turn') continue;
-    if (!toolUses.length) return;
+    chat.messages.push({ role: 'assistant', content: res.content });
+    if (res.stop === 'pause') continue;
+    if (!toolUses.length || !tools) return;
 
     const results = [];
     for (const tu of toolUses) {
-      let res;
+      let out;
       try {
-        res = await runTool(tu.name, tu.input || {}, ctx);
+        out = await runTool(tu.name, tu.input || {}, ctx);
       } catch (err) {
-        res = { content: `Tool failed: ${err.message}`, isError: true };
+        out = { content: `Tool failed: ${err.message}`, isError: true };
       }
-      results.push({ type: 'tool_result', tool_use_id: tu.id, content: res.content, ...(res.isError && { is_error: true }) });
+      results.push({ type: 'tool_result', tool_use_id: tu.id, content: out.content, ...(out.isError && { is_error: true }) });
     }
     chat.messages.push({ role: 'user', content: results });
     emit('status', { text: '' });
@@ -314,7 +306,27 @@ export function aiRouter(storage) {
   const router = express.Router();
 
   router.get('/status', (req, res) => {
-    res.json({ envKey: envHasKey(), model: AI_MODEL, clientKeyAllowed: ALLOW_CLIENT_KEY, tasks: Object.fromEntries(Object.entries(ASSIST_TASKS).map(([k, v]) => [k, v.label])) });
+    const s = providerStatus();
+    res.json({
+      ...s,
+      // Older clients: whether the server's default provider is ready, and keys from the browser.
+      envKey: s.configured,
+      clientKeyAllowed: s.allowClientConfig,
+      tasks: Object.fromEntries(Object.entries(ASSIST_TASKS).map(([k, v]) => [k, v.label])),
+    });
+  });
+
+  // Models offered by the provider in the request's settings (the settings
+  // panel sends the values being edited, before they are saved).
+  router.get('/models', async (req, res) => {
+    const got = llmFor(req);
+    if (got.error) return res.status(400).json({ error: configError(got, req.lang) });
+    try {
+      const models = await got.llm.listModels();
+      res.json({ provider: got.cfg.provider.id, models: [...new Set(models)].sort((a, b) => a.localeCompare(b)) });
+    } catch (err) {
+      res.status(502).json({ error: describeLLMError(err, got.cfg, req.lang) });
+    }
   });
 
   router.get('/chats', async (req, res, next) => {
@@ -355,8 +367,9 @@ export function aiRouter(storage) {
       if (!message || typeof message !== 'string') return res.status(400).json({ error: 'message is required' });
       const story = await storage.getStory(String(storyId || ''));
       if (!story) return res.status(404).json({ error: tl(req.lang, 'Story not found') });
-      const client = clientFor(req, { maxRetries: 2 });
-      if (!client) return res.status(503).json({ error: tl(req.lang, 'AI is not configured. Set ANTHROPIC_API_KEY on the server or add a key in AI settings.') });
+      const got = llmFor(req);
+      if (got.error) return res.status(503).json({ error: configError(got, req.lang) });
+      const { llm, cfg } = got;
 
       let chat = chatId ? await storage.getChat(chatId) : null;
       if (chat && chat.storyId !== story.id) chat = null;
@@ -385,21 +398,22 @@ export function aiRouter(storage) {
           if (last && last.type === 'text') last.text += data.text; else assistant.parts.push({ type: 'text', text: data.text });
         } else if (event === 'proposal') assistant.parts.push({ type: 'proposal', id: data.id });
         else if (event === 'error') assistant.parts.push({ type: 'error', text: data.message });
+        else if (event === 'notice') assistant.parts.push({ type: 'notice', text: data.text });
         emit(event, data);
       };
 
       const controller = new AbortController();
       res.on('close', () => { if (!res.writableFinished) controller.abort(); });
       try {
-        await runAgent({ client, chat, storage, emit: record, signal: controller.signal, lang: req.lang });
+        await runAgent({ llm, chat, storage, emit: record, signal: controller.signal, lang: req.lang });
       } catch (err) {
-        if (!controller.signal.aborted) record('error', { message: describeError(err, req.lang) });
+        if (!controller.signal.aborted) record('error', { message: describeLLMError(err, { ...cfg, model: llm.model }, req.lang) });
       }
       await storage.saveChat(chat);
       emit('done', { chatId: chat.id });
       res.end();
     } catch (err) {
-      if (emit) { emit('error', { message: describeError(err, req.lang) }); res.end(); } else next(err);
+      if (emit) { emit('error', { message: describeLLMError(err, null, req.lang) }); res.end(); } else next(err);
     }
   });
 
@@ -411,8 +425,9 @@ export function aiRouter(storage) {
       if (!spec) return res.status(400).json({ error: `Unknown task "${task}"` });
       const story = await storage.getStory(String(storyId || ''));
       if (!story) return res.status(404).json({ error: tl(req.lang, 'Story not found') });
-      const client = clientFor(req, { maxRetries: 2 });
-      if (!client) return res.status(503).json({ error: tl(req.lang, 'AI is not configured. Set ANTHROPIC_API_KEY on the server or add a key in AI settings.') });
+      const got = llmFor(req);
+      if (got.error) return res.status(503).json({ error: configError(got, req.lang) });
+      const { llm, cfg } = got;
 
       let taskInput = typeof input === 'string' ? input.slice(0, 4000) : '';
       if (task === 'story-doctor') taskInput = diagnose(story).filter((c) => c.status !== 'pass').map((c) => `- [${c.status}] ${c.title}: ${c.detail}`).join('\n') || 'No findings.';
@@ -421,19 +436,19 @@ export function aiRouter(storage) {
       emit = openSse(res);
       const controller = new AbortController();
       res.on('close', () => { if (!res.writableFinished) controller.abort(); });
-      const stream = client.beta.messages.stream({
-        ...baseParams({ display: 'omitted' }),
-        max_tokens: 32000,
-        system: withLanguage(ASSIST_SYSTEM, req.lang),
-        messages: [{ role: 'user', content: prompt }],
-      }, { signal: controller.signal });
-      stream.on('text', (delta) => emit('text', { text: delta }));
-      const message = await stream.finalMessage();
-      if (message.stop_reason === 'refusal') emit('error', { message: tl(req.lang, 'Claude declined this request.') });
+      try {
+        const { stop } = await llm.complete({
+          system: withLanguage(ASSIST_SYSTEM, req.lang), prompt, signal: controller.signal,
+          onText: (text) => emit('text', { text }),
+        });
+        if (stop === 'refusal') emit('error', { message: tl(req.lang, '{name} declined this request.', { name: llm.label }) });
+      } catch (err) {
+        if (!controller.signal.aborted) emit('error', { message: describeLLMError(err, { ...cfg, model: llm.model }, req.lang) });
+      }
       emit('done', {});
       res.end();
     } catch (err) {
-      if (emit) { emit('error', { message: describeError(err, req.lang) }); res.end(); } else next(err);
+      if (emit) { emit('error', { message: describeLLMError(err, null, req.lang) }); res.end(); } else next(err);
     }
   });
 

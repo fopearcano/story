@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Storage, isValidId } from './server/storage.js';
-import { aiRouter, envHasKey, AI_MODEL } from './server/ai.js';
+import { aiRouter, aiSummary } from './server/ai.js';
 import { sampleStory } from './public/js/sample.js';
 import { normalizeStory } from './public/js/model.js';
 import { normLang, tl } from './public/js/i18n.js';
@@ -43,7 +43,7 @@ export async function createApp({ dataDir = DATA_DIR, seed = true } = {}) {
     next();
   }));
 
-  api.get('/health', (req, res) => res.json({ ok: true, ai: { envKey: envHasKey(), model: AI_MODEL } }));
+  api.get('/health', (req, res) => res.json({ ok: true, ai: aiSummary() }));
 
   api.get('/stories', wrap(async (req, res) => res.json(await storage.listStories())));
 
@@ -115,7 +115,8 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
       for (const ip of lanAddresses()) console.log(`  on your network:  http://${ip}:${PORT}`);
     }
     console.log(`Data directory: ${DATA_DIR}`);
-    console.log(envHasKey() ? `AI: enabled (${AI_MODEL})` : 'AI: optional — set ANTHROPIC_API_KEY (or add a key in the app) to enable the AI partner.');
+    const ai = aiSummary();
+    console.log(ai.configured ? `AI: ${ai.label}, model ${ai.model}` : 'AI: optional — set a provider key (e.g. ANTHROPIC_API_KEY or OPENAI_API_KEY), point it at a local server, or configure it in the app.');
   });
   server.on('error', (err) => {
     console.error(err.code === 'EADDRINUSE' ? `Port ${PORT} is already in use. Set PORT to use another one.` : err.message);

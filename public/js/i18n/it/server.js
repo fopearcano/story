@@ -15,15 +15,9 @@ export default {
   'Internal server error': 'Errore interno del server',
   'The API key was rejected. Check it in AI settings.': 'La chiave API è stata rifiutata. Controllala nelle impostazioni IA.',
   'This API key is not allowed to use the configured model.': 'Questa chiave API non può usare il modello configurato.',
-  'Model "{model}" was not found for this key.': 'Il modello “{model}” non è disponibile per questa chiave.',
   'Rate limited by the API — wait a moment and try again.': 'Troppe richieste all’API: attendi un momento e riprova.',
   'The API rejected the request: {message}': 'L’API ha rifiutato la richiesta: {message}',
-  'Could not reach the Claude API (network error).': 'Impossibile raggiungere l’API di Claude (errore di rete).',
-  'Claude API error {status}: {message}': 'Errore dell’API di Claude {status}: {message}',
-  'AI is not configured. Set ANTHROPIC_API_KEY on the server or add a key in AI settings.': 'L’IA non è configurata. Imposta ANTHROPIC_API_KEY sul server o aggiungi una chiave nelle impostazioni IA.',
   'Retrying a malformed tool call…': 'Nuovo tentativo dopo una chiamata a uno strumento non valida…',
-  'Claude declined to continue this request.': 'Claude ha rifiutato di proseguire con questa richiesta.',
-  'Claude declined this request.': 'Claude ha rifiutato questa richiesta.',
   'Stopped after many tool calls; ask me to continue.': 'Mi sono fermato dopo molte chiamate agli strumenti: chiedimi di continuare.',
 
   // model.js labels
@@ -86,4 +80,19 @@ export default {
   'Contradictory': 'Contraddittorio',
   'Negation of the Negation': 'Negazione della negazione',
   'Language': 'Lingua',
+
+  // AI providers
+  'The server address must start with http:// or https://.': 'L’indirizzo del server deve iniziare con http:// o https://.',
+  'Set the server address for {provider} in AI settings.': 'Imposta l’indirizzo del server di {provider} nelle impostazioni IA.',
+  'Add an API key for {provider} in AI settings, or set {env} on the server.': 'Aggiungi una chiave API per {provider} nelle impostazioni IA, oppure imposta {env} sul server.',
+  '{model} can’t use tools, so it reads the story from a summary and can’t make proposal cards. For proposals, pick a model with tool support.': '{model} non può usare strumenti: legge la storia da un riassunto e non può creare schede di proposta. Per le proposte scegli un modello che supporti gli strumenti.',
+  '{name} declined to continue this request.': '{name} ha rifiutato di proseguire con questa richiesta.',
+  'The model returned an empty reply.': 'Il modello ha restituito una risposta vuota.',
+  '{name} declined this request.': '{name} ha rifiutato questa richiesta.',
+  '{provider} could not find model “{model}”. Pick another one in AI settings.': '{provider} non trova il modello “{model}”. Scegline un altro nelle impostazioni IA.',
+  'Could not reach {provider} at {url}. Is it running?': 'Impossibile raggiungere {provider} all’indirizzo {url}. È avviato?',
+  'Could not reach {provider} (network error).': 'Impossibile raggiungere {provider} (errore di rete).',
+  'No models found at {url}. Download or load a model first.': 'Nessun modello trovato all’indirizzo {url}. Scarica o carica prima un modello.',
+  'The reply was cut off in the middle of a tool call.': 'La risposta si è interrotta a metà di una chiamata a uno strumento.',
+  '{provider} error {status}: {message}': 'Errore di {provider} {status}: {message}',
 };
