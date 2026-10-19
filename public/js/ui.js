@@ -1,5 +1,6 @@
 // Shared UI components.
-import { html, useState, useRef, useEffect, cx, initials } from './lib.js';
+import { html, h, useState, useRef, useEffect, cx, initials } from './lib.js';
+import { t, lang, LANGS, setLang } from './i18n.js';
 import { useStory } from './store.js';
 import { principleById, chapterLabel } from './kb/principles.js';
 import { CHARGES, chargeClass, chargeLabel } from './kb/values.js';
@@ -44,12 +45,40 @@ export function Icon({ name, size = 18 }) {
   return html`<svg class="icon" width=${size} height=${size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d=${paths[name] || paths.dot} /></svg>`;
 }
 
+// Translated text with light inline markup: <b>, <i>, <em>, <strong> and
+// <code> become elements; everything else stays text (never parsed as HTML).
+export function rich(s, params) {
+  const str = t(s, params); // i18n-dynamic
+  const root = { kids: [] };
+  const stack = [root];
+  const close = () => { const n = stack.pop(); stack[stack.length - 1].kids.push(h(n.tag, null, ...n.kids)); };
+  const re = /<(\/?)(b|i|em|strong|code)>/g;
+  let last = 0;
+  let m;
+  while ((m = re.exec(str))) {
+    if (m.index > last) stack[stack.length - 1].kids.push(str.slice(last, m.index));
+    if (!m[1]) stack.push({ tag: m[2], kids: [] });
+    else if (stack.length > 1 && stack[stack.length - 1].tag === m[2]) close();
+    last = re.lastIndex;
+  }
+  if (last < str.length) stack[stack.length - 1].kids.push(str.slice(last));
+  while (stack.length > 1) close();
+  return root.kids;
+}
+
+export function LangSwitch() {
+  return html`<div class="segmented small lang-switch" role="radiogroup" aria-label=${t('Language')}>
+    ${LANGS.map((l) => html`<button type="button" role="radio" aria-checked=${lang === l.id} class=${cx(lang === l.id && 'on')}
+      title=${l.label} lang=${l.id} onClick=${() => lang !== l.id && setLang(l.id)}>${l.short}</button>`)}
+  </div>`;
+}
+
 export function Cite({ id, ids }) {
   const { story } = useStory() || {};
   const list = (ids || [id]).map(principleById).filter(Boolean);
   if (!list.length) return null;
   return html`<span class="cites">${list.map((p) => html`
-    <a class="cite" href=${story ? href(story.id, 'library', p.id) : '#'} title=${`${p.term} — ${p.text}`}>
+    <a class="cite" href=${story ? href(story.id, 'library', p.id) : '#'} title=${`${p.term}${p.original ? ` (${p.original})` : ''} — ${p.text}`}>
       <${Icon} name="book" size=${12} /> ${chapterLabel(p.chapter)} · ${p.term}
     </a>`)}</span>`;
 }
@@ -58,7 +87,7 @@ export function Principle({ id, compact }) {
   const p = principleById(id);
   if (!p) return null;
   return html`<div class=${cx('principle', compact && 'compact')}>
-    <div class="principle-head"><span class="principle-term">${p.term}</span><span class="principle-ch">McKee · ${chapterLabel(p.chapter)} ${p.chapterTitle}</span></div>
+    <div class="principle-head"><span class="principle-term">${p.term}${p.original && html` <span class="principle-orig">(${p.original})</span>`}</span><span class="principle-ch">McKee · ${chapterLabel(p.chapter)} ${p.chapterTitle}</span></div>
     <p>${p.text}</p>
   </div>`;
 }
@@ -150,7 +179,7 @@ export function Segmented({ value, options, onChange, size }) {
 
 export function ChargePicker({ value, onChange, decl, label }) {
   return html`<div class="field">
-    ${label && html`<span class="field-label">${label} <b class=${cx('charge-text', hasCharge(value) && chargeClass(value))}>${hasCharge(value) ? chargeLabel(value, decl) : 'not set'}</b></span>`}
+    ${label && html`<span class="field-label">${label} <b class=${cx('charge-text', hasCharge(value) && chargeClass(value))}>${hasCharge(value) ? chargeLabel(value, decl) : t('not set')}</b></span>`}
     <div class="charge-picker">
       ${CHARGES.slice().reverse().map((c) => html`<button type="button" class=${cx('charge-btn', chargeClass(c.v), Number(value) === c.v && hasCharge(value) && 'on')}
         title=${chargeLabel(c.v, decl)} onClick=${() => onChange(Number(value) === c.v && hasCharge(value) ? null : c.v)}>${c.v > 0 ? `+${c.v}` : c.v === 0 ? '±' : c.v}</button>`)}
@@ -191,7 +220,7 @@ export function Btn({ children, onClick, kind = 'ghost', icon, title, disabled, 
 export function SceneSelect({ label, value, onChange, allowEmpty = true, hint }) {
   const { story } = useStory();
   const options = [
-    ...(allowEmpty ? [{ id: '', label: '— none —' }] : []),
+    ...(allowEmpty ? [{ id: '', label: t('— none —') }] : []),
     ...story.scenes.map((s) => ({ id: s.id, label: sceneLabel(story, s.id) })),
   ];
   return html`<${Select} label=${label} value=${value} options=${options} onChange=${onChange} hint=${hint} />`;
@@ -199,12 +228,12 @@ export function SceneSelect({ label, value, onChange, allowEmpty = true, hint })
 
 export function CharacterSelect({ label, value, onChange, allowEmpty = true }) {
   const { story } = useStory();
-  const options = [...(allowEmpty ? [{ id: '', label: '— none —' }] : []), ...story.characters.map((c) => ({ id: c.id, label: c.name || 'Unnamed' }))];
+  const options = [...(allowEmpty ? [{ id: '', label: t('— none —') }] : []), ...story.characters.map((c) => ({ id: c.id, label: c.name || t('Unnamed') }))];
   return html`<${Select} label=${label} value=${value} options=${options} onChange=${onChange} />`;
 }
 
 // Generic editable list: items rendered via `render(item, i, set)`; set(patch) merges into the item.
-export function ListEditor({ items, onChange, render, make, addLabel = 'Add', empty, reorder = true, class: cls }) {
+export function ListEditor({ items, onChange, render, make, addLabel = t('Add'), empty, reorder = true, class: cls }) {
   const set = (i) => (patch) => onChange(items.map((it, k) => (k === i ? { ...it, ...patch } : it)));
   const remove = (i) => onChange(items.filter((_, k) => k !== i));
   const move = (i, d) => {
@@ -219,9 +248,9 @@ export function ListEditor({ items, onChange, render, make, addLabel = 'Add', em
     ${items.map((it, i) => html`<div class="list-row" key=${it.id || i}>
       <div class="list-body">${render(it, i, set(i))}</div>
       <div class="list-tools">
-        ${reorder && html`<button type="button" class="icon-btn" title="Move up" onClick=${() => move(i, -1)} disabled=${i === 0}><${Icon} name="up" size=${14} /></button>
-        <button type="button" class="icon-btn" title="Move down" onClick=${() => move(i, 1)} disabled=${i === items.length - 1}><${Icon} name="down" size=${14} /></button>`}
-        <button type="button" class="icon-btn danger" title="Remove" onClick=${() => remove(i)}><${Icon} name="trash" size=${14} /></button>
+        ${reorder && html`<button type="button" class="icon-btn" title=${t('Move up')} onClick=${() => move(i, -1)} disabled=${i === 0}><${Icon} name="up" size=${14} /></button>
+        <button type="button" class="icon-btn" title=${t('Move down')} onClick=${() => move(i, 1)} disabled=${i === items.length - 1}><${Icon} name="down" size=${14} /></button>`}
+        <button type="button" class="icon-btn danger" title=${t('Remove')} onClick=${() => remove(i)}><${Icon} name="trash" size=${14} /></button>
       </div>
     </div>`)}
     <${Btn} icon="plus" small onClick=${() => onChange([...items, make()])}>${addLabel}</${Btn}>
@@ -229,7 +258,7 @@ export function ListEditor({ items, onChange, render, make, addLabel = 'Add', em
 }
 
 export function Tabs({ tabs, value, onChange }) {
-  return html`<div class="tabs" role="tablist">${tabs.map((t) => html`<button role="tab" aria-selected=${value === t.id} class=${cx('tab', value === t.id && 'on')} onClick=${() => onChange(t.id)}>${t.label}${t.badge ? html` <span class="tab-badge">${t.badge}</span>` : ''}</button>`)}</div>`;
+  return html`<div class="tabs" role="tablist">${tabs.map((tab) => html`<button role="tab" aria-selected=${value === tab.id} class=${cx('tab', value === tab.id && 'on')} onClick=${() => onChange(tab.id)}>${tab.label}${tab.badge ? html` <span class="tab-badge">${tab.badge}</span>` : ''}</button>`)}</div>`;
 }
 
 export function Modal({ title, onClose, children, wide }) {
@@ -240,7 +269,7 @@ export function Modal({ title, onClose, children, wide }) {
   }, []);
   return html`<div class="modal-back" onClick=${(e) => e.target === e.currentTarget && onClose()}>
     <div class=${cx('modal', wide && 'wide')} role="dialog" aria-modal="true" aria-label=${title}>
-      <div class="modal-head"><h2>${title}</h2><button class="icon-btn" onClick=${onClose} title="Close"><${Icon} name="close" /></button></div>
+      <div class="modal-head"><h2>${title}</h2><button class="icon-btn" onClick=${onClose} title=${t('Close')}><${Icon} name="close" /></button></div>
       <div class="modal-body">${children}</div>
     </div>
   </div>`;

@@ -3,7 +3,8 @@ import { html, render, useState, useEffect, useMemo, useCallback, cx, safeStorag
 import { api } from './api.js';
 import { StoryCtx, useStoryState } from './store.js';
 import { AppCtx } from './appctx.js';
-import { Icon, href } from './ui.js';
+import { Icon, href, LangSwitch } from './ui.js';
+import { t } from './i18n.js';
 import { diagnose } from './doctor.js';
 import { HomeView } from './views/home.js';
 import { DashboardView, DoctorView, LibraryView, ExportView } from './views/overview.js';
@@ -15,38 +16,46 @@ import { ExpositionView, SetupsView, ImagesView, OutlineView } from './views/cra
 import { ChatDrawer } from './ai/chat.js';
 
 export const NAV = [
-  { group: 'Overview', items: [
-    { id: 'dashboard', label: 'Dashboard', view: DashboardView },
-    { id: 'doctor', label: 'Story Doctor', view: DoctorView },
+  { group: t('Overview'), items: [
+    { id: 'dashboard', label: t('Dashboard'), view: DashboardView },
+    { id: 'doctor', label: t('Story Doctor'), view: DoctorView },
   ] },
-  { group: 'Elements of Story', note: 'Part 2', items: [
-    { id: 'meaning', label: 'Premise & Meaning', view: MeaningView, ch: 6 },
-    { id: 'triangle', label: 'Story Triangle', view: TriangleView, ch: 2 },
-    { id: 'setting', label: 'Setting & World', view: SettingView, ch: 3 },
-    { id: 'genre', label: 'Genre', view: GenreView, ch: 4 },
-    { id: 'characters', label: 'Characters', view: CharactersView, ch: 5 },
-    { id: 'cast', label: 'Cast Design', view: CastView, ch: 17 },
-    { id: 'values', label: 'Values & Antagonism', view: ValuesView, ch: 14 },
+  { group: t('Elements of Story'), note: t('Part {n}', { n: 2 }), items: [
+    { id: 'meaning', label: t('Premise & Meaning'), view: MeaningView, ch: 6 },
+    { id: 'triangle', label: t('Story Triangle'), view: TriangleView, ch: 2 },
+    { id: 'setting', label: t('Setting & World'), view: SettingView, ch: 3 },
+    { id: 'genre', label: t('Genre'), view: GenreView, ch: 4 },
+    { id: 'characters', label: t('Characters'), view: CharactersView, ch: 5 },
+    { id: 'cast', label: t('Cast Design'), view: CastView, ch: 17 },
+    { id: 'values', label: t('Values & Antagonism'), view: ValuesView, ch: 14 },
   ] },
-  { group: 'Story Design', note: 'Part 3', items: [
-    { id: 'inciting', label: 'Inciting Incident', view: IncitingView, ch: 8 },
-    { id: 'structure', label: 'Acts & Arc', view: StructureView, ch: 9 },
-    { id: 'scenes', label: 'Scenes', view: ScenesView, ch: 10 },
-    { id: 'gaps', label: 'Gap Lab', view: GapsView, ch: 7 },
-    { id: 'crisis', label: 'Crisis · Climax', view: CrisisView, ch: 13 },
-    { id: 'subplots', label: 'Subplots', view: SubplotsView, ch: 9 },
-    { id: 'composition', label: 'Composition', view: CompositionView, ch: 12 },
+  { group: t('Story Design'), note: t('Part {n}', { n: 3 }), items: [
+    { id: 'inciting', label: t('Inciting Incident'), view: IncitingView, ch: 8 },
+    { id: 'structure', label: t('Acts & Arc'), view: StructureView, ch: 9 },
+    { id: 'scenes', label: t('Scenes'), view: ScenesView, ch: 10 },
+    { id: 'gaps', label: t('Gap Lab'), view: GapsView, ch: 7 },
+    { id: 'crisis', label: t('Crisis · Climax'), view: CrisisView, ch: 13 },
+    { id: 'subplots', label: t('Subplots'), view: SubplotsView, ch: 9 },
+    { id: 'composition', label: t('Composition'), view: CompositionView, ch: 12 },
   ] },
-  { group: 'Writer at Work', note: 'Part 4', items: [
-    { id: 'exposition', label: 'Exposition', view: ExpositionView, ch: 15 },
-    { id: 'setups', label: 'Setups & Payoffs', view: SetupsView, ch: 10 },
-    { id: 'images', label: 'Image Systems', view: ImagesView, ch: 18 },
-    { id: 'outline', label: 'Outline · Treatment', view: OutlineView, ch: 19 },
-    { id: 'library', label: 'Principles Library', view: LibraryView },
-    { id: 'export', label: 'Export', view: ExportView },
+  { group: t('Writer at Work'), note: t('Part {n}', { n: 4 }), items: [
+    { id: 'exposition', label: t('Exposition'), view: ExpositionView, ch: 15 },
+    { id: 'setups', label: t('Setups & Payoffs'), view: SetupsView, ch: 10 },
+    { id: 'images', label: t('Image Systems'), view: ImagesView, ch: 18 },
+    { id: 'outline', label: t('Outline · Treatment'), view: OutlineView, ch: 19 },
+    { id: 'library', label: t('Principles Library'), view: LibraryView },
+    { id: 'export', label: t('Export'), view: ExportView },
   ] },
 ];
 const ALL = NAV.flatMap((g) => g.items);
+
+// Tooltip on the sidebar dot for each Story Doctor status.
+const DOCTOR_TIP = {
+  pass: t('Story Doctor: pass'),
+  warn: t('Story Doctor: warn'),
+  fail: t('Story Doctor: fail'),
+  todo: t('Story Doctor: todo'),
+};
 
 function parseHash() {
   const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
@@ -84,7 +93,7 @@ function App() {
 
   if (!route.storyId) {
     return html`<${AppCtx.Provider} value=${{ ai, refreshAi, openAi: () => {} }}>
-      <div class="topbar" style="justify-content:flex-end"><button class="icon-btn" onClick=${toggleTheme} title="Toggle theme"><${Icon} name=${dark ? 'sun' : 'moon'} /></button></div>
+      <div class="topbar" style="justify-content:flex-end"><${LangSwitch} /><button class="icon-btn" onClick=${toggleTheme} title=${t('Toggle theme')}><${Icon} name=${dark ? 'sun' : 'moon'} /></button></div>
       <${HomeView} />
     </${AppCtx.Provider}>`;
   }
@@ -119,36 +128,37 @@ function StoryShell({ route, ai, refreshAi, dark, toggleTheme }) {
     return out;
   }, [checks]);
 
-  if (status === 'missing') return html`<div class="home"><div class="empty"><div class="empty-title">Story not found</div><p><a href="#/">Back to your stories</a></p></div></div>`;
-  if (!story) return html`<div class="home"><p class="muted">Loading story…</p></div>`;
+  if (status === 'missing') return html`<div class="home"><div class="empty"><div class="empty-title">${t('Story not found')}</div><p><a href="#/">${t('Back to your stories')}</a></p></div></div>`;
+  if (!story) return html`<div class="home"><p class="muted">${t('Loading story…')}</p></div>`;
 
   const entry = ALL.find((n) => n.id === route.view) || ALL[0];
   const View = entry.view;
-  const statusText = { saved: 'Saved', saving: 'Saving…', dirty: 'Unsaved changes', error: 'Save failed — retrying on next edit', loading: '' }[status];
+  const statusText = { saved: t('Saved'), saving: t('Saving…'), dirty: t('Unsaved changes'), error: t('Save failed — retrying on next edit'), loading: '' }[status];
 
   return html`<${AppCtx.Provider} value=${{ ai, refreshAi, openAi, checks, route }}>
     <${StoryCtx.Provider} value=${store}>
       <div class=${cx('shell', drawer.open && 'drawer-open')}>
-        <nav class=${cx('sidebar', menu && 'open')} aria-label="Story tools">
-          <a class="brand" href="#/"><span class="brand-mark">S</span><span><div class="brand-name">Story Builder</div><div class="brand-sub">after McKee’s Story</div></span></a>
-          <div class="story-switch"><b title=${story.title}>${story.title}</b><a href="#/">All stories</a></div>
+        <nav class=${cx('sidebar', menu && 'open')} aria-label=${t('Story tools')}>
+          <a class="brand" href="#/"><span class="brand-mark">S</span><span><div class="brand-name">Story Builder</div><div class="brand-sub">${t('after McKee’s Story')}</div></span></a>
+          <div class="story-switch"><b title=${story.title}>${story.title}</b><a href="#/">${t('All stories')}</a></div>
           ${NAV.map((g) => html`<div class="nav-group">
             <div class="nav-group-title"><span>${g.group}</span>${g.note && html`<span>${g.note}</span>`}</div>
             ${g.items.map((it) => html`<a class=${cx('nav-link', route.view === it.id && 'on')} href=${href(story.id, it.id)}>
-              <span class=${cx('nav-dot', navStatus[it.id])} title=${navStatus[it.id] ? `Story Doctor: ${navStatus[it.id]}` : ''} />
-              ${it.label}${it.ch && html`<span class="nav-num">ch.${it.ch}</span>`}
+              <span class=${cx('nav-dot', navStatus[it.id])} title=${DOCTOR_TIP[navStatus[it.id]] || ''} />
+              ${it.label}${it.ch && html`<span class="nav-num">${t('ch.{n}', { n: it.ch })}</span>`}
             </a>`)}
           </div>`)}
         </nav>
         <div class="main">
           <div class="topbar">
-            <button class="icon-btn menu-btn" onClick=${() => setMenu(!menu)} title="Menu"><${Icon} name="menu" /></button>
-            <div class="crumbs"><a href="#/">Stories</a> / <a href=${href(story.id)}>${story.title}</a> / <b>${entry.label}</b></div>
+            <button class="icon-btn menu-btn" onClick=${() => setMenu(!menu)} title=${t('Menu')}><${Icon} name="menu" /></button>
+            <div class="crumbs"><a href="#/">${t('Stories')}</a> / <a href=${href(story.id)}>${story.title}</a> / <b>${entry.label}</b></div>
             <span class=${cx('save-state', status)} title=${statusText}><span class="dot" />${statusText}</span>
-            <button class="icon-btn" onClick=${store.undo} disabled=${!store.canUndo} title="Undo (Ctrl+Z)"><${Icon} name="undo" /></button>
-            <button class="icon-btn" onClick=${store.redo} disabled=${!store.canRedo} title="Redo (Ctrl+Shift+Z)"><${Icon} name="redo" /></button>
-            <button class="icon-btn" onClick=${toggleTheme} title="Toggle theme"><${Icon} name=${dark ? 'sun' : 'moon'} /></button>
-            <button class="btn ai small" onClick=${() => (drawer.open ? setDrawer({ ...drawer, open: false }) : openAi(route.view === 'characters' ? route.sub : ''))}><${Icon} name="spark" size=${14} /><span>AI partner</span></button>
+            <button class="icon-btn" onClick=${store.undo} disabled=${!store.canUndo} title=${t('Undo (Ctrl+Z)')}><${Icon} name="undo" /></button>
+            <button class="icon-btn" onClick=${store.redo} disabled=${!store.canRedo} title=${t('Redo (Ctrl+Shift+Z)')}><${Icon} name="redo" /></button>
+            <${LangSwitch} />
+            <button class="icon-btn" onClick=${toggleTheme} title=${t('Toggle theme')}><${Icon} name=${dark ? 'sun' : 'moon'} /></button>
+            <button class="btn ai small" onClick=${() => (drawer.open ? setDrawer({ ...drawer, open: false }) : openAi(route.view === 'characters' ? route.sub : ''))}><${Icon} name="spark" size=${14} /><span>${t('AI partner')}</span></button>
           </div>
           <main class="content"><${View} sub=${route.sub} /></main>
         </div>

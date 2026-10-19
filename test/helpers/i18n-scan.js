@@ -46,7 +46,7 @@ export function dynamicCalls(src) {
   const lines = src.split('\n');
   const allowed = (line) => /i18n-dynamic/.test(lines[line - 1] || '');
   for (const m of src.matchAll(/(?<![\w.$]|function\s)(t|rich)\(\s*(?!')/g)) bad.push({ call: m[1], line: lineOf(src, m.index) });
-  for (const m of src.matchAll(/(?<![\w.$]|function\s)tn\(\s*[^,]+,\s*(?!')/g)) bad.push({ call: 'tn', line: lineOf(src, m.index) });
+  for (const m of src.matchAll(/(?<![\w.$]|function\s)tn\(\s*[^,]+,(?!\s*')/g)) bad.push({ call: 'tn', line: lineOf(src, m.index) });
   return bad.filter((b) => !allowed(b.line));
 }
 
