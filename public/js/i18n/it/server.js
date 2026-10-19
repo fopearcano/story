@@ -95,4 +95,6 @@ export default {
   'No models found at {url}. Download or load a model first.': 'Nessun modello trovato all’indirizzo {url}. Scarica o carica prima un modello.',
   'The reply was cut off in the middle of a tool call.': 'La risposta si è interrotta a metà di una chiamata a uno strumento.',
   '{provider} error {status}: {message}': 'Errore di {provider} {status}: {message}',
+  'The request body is not valid JSON.': 'Il corpo della richiesta non è un JSON valido.',
+  'The story is too large (5 MB at most).': 'La storia è troppo grande (al massimo 5 MB).',
 };

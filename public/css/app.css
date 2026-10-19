@@ -140,7 +140,8 @@ p { margin: 0.4em 0; }
 .page { max-width: 1180px; margin: 0 auto; }
 .page.wide { max-width: 1500px; }
 .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
-.page-head h1 { font: 600 30px/1.15 var(--serif); }
+.page-head > div:first-child { min-width: 0; flex: 1 1 280px; }
+.page-head h1 { font: 600 30px/1.15 var(--serif); overflow-wrap: anywhere; }
 .page-head .intro { color: var(--ink-2); max-width: 760px; margin-top: 6px; }
 .page-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .kicker { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
@@ -173,16 +174,16 @@ p { margin: 0.4em 0; }
 .card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px 10px; margin-bottom: 12px; flex-wrap: wrap; }
 .card-head > div:first-child { flex: 1 1 180px; min-width: 0; }
 .card-head h2 { font-size: 16px; }
-.card-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; }
+.card-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; margin-left: auto; min-width: 0; max-width: 100%; }
 .card.flat { box-shadow: none; }
 .card.tone-hero { padding: 22px 24px; }
 
 /* ---- Principles & citations -------------------------------------------- */
-.cites { display: inline-flex; gap: 6px; flex-wrap: wrap; vertical-align: middle; }
+.cites { display: inline-flex; gap: 6px; flex-wrap: wrap; vertical-align: middle; max-width: 100%; min-width: 0; }
 .cite {
   display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--ink-2);
   background: var(--surface-2); border: 1px solid var(--ring); border-radius: 999px; padding: 1px 8px 1px 6px;
-  text-decoration: none; white-space: nowrap; font-weight: 500;
+  text-decoration: none; font-weight: 500; max-width: 100%;
 }
 .cite:hover { color: var(--ink); background: var(--surface-3); }
 .page-head .cites { margin-top: 10px; }
@@ -470,6 +471,7 @@ p { margin: 0.4em 0; }
 .check { display: grid; grid-template-columns: 110px 1fr auto; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--ring); align-items: start; }
 .check:last-child { border-bottom: 0; }
 .check-title { font-weight: 600; font-size: 14px; }
+.check > * { min-width: 0; overflow-wrap: anywhere; }
 .check-detail { color: var(--ink-2); font-size: 13.5px; }
 
 .callout { background: var(--surface-2); border-radius: 9px; padding: 10px 12px; font-size: 13.5px; color: var(--ink-2); border: 1px solid var(--ring); }
@@ -644,4 +646,10 @@ kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--axis); 
 @media (max-width: 860px) {
   [data-style="terminal"] .home-hero h1 { font-size: 26px; }
   [data-style="terminal"] .page-head h1 { font-size: 21px; }
+}
+/* Narrow screens: long citations wrap inside their chip, tables scroll sideways,
+   kickers break long words (Italian and monospace run wider). */
+@media (max-width: 860px) {
+  .table { display: block; overflow-x: auto; }
+  .kicker { overflow-wrap: anywhere; }
 }

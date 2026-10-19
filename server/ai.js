@@ -421,7 +421,7 @@ export function aiRouter(storage) {
     let emit;
     try {
       const { task, storyId, sceneId, input } = req.body || {};
-      const spec = ASSIST_TASKS[task];
+      const spec = typeof task === 'string' && Object.hasOwn(ASSIST_TASKS, task) ? ASSIST_TASKS[task] : null;
       if (!spec) return res.status(400).json({ error: `Unknown task "${task}"` });
       const story = await storage.getStory(String(storyId || ''));
       if (!story) return res.status(404).json({ error: tl(req.lang, 'Story not found') });

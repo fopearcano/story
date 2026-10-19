@@ -173,3 +173,38 @@ test('markdown renderer escapes HTML', () => {
   assert.doesNotMatch(html, /<script>/);
   assert.match(html, /<ul>\n<li>item<\/li>/);
 });
+
+test('normalizeStory survives wrongly-typed and junk data', () => {
+  const junk = [
+    null, 'text', [1, 2],
+    { title: 42, scenes: 'nope', characters: { a: 1 }, plotlines: null, values: 5, meaning: [] },
+    { scenes: [null, 5, 'x', { title: 3, beats: 'b', characters: [7, null, 'c1'], pages: '4', open: 'x' }], characters: [null, { id: 9, name: 7, qualities: 'q', dimensions: [null, { a: 'x', b: 'y' }], willpower: 'high' }] },
+    { genres: { secondary: [null, 3, {}], checks: [] }, setting: { rules: [1, null, { a: 1 }], levels: 'x' }, images: [{ scenes: 'all' }, 7], antagonism: 'x' },
+  ];
+  for (const raw of junk) {
+    const s = normalizeStory(raw);
+    assert.ok(Array.isArray(s.scenes) && Array.isArray(s.characters));
+    assert.ok(s.plotlines.some((p) => p.id === 'main'));
+    assert.doesNotThrow(() => diagnose(s));
+  }
+  const s = normalizeStory(junk[4]);
+  assert.equal(s.scenes.length, 1);
+  assert.equal(s.scenes[0].title, '3');
+  assert.equal(s.scenes[0].pages, 4);
+  assert.deepEqual(s.scenes[0].beats, []);
+  assert.deepEqual(s.scenes[0].characters, ['7', 'c1']);
+  assert.equal(s.characters[0].name, '7');
+  assert.equal(s.characters[0].willpower, 5);
+  assert.equal(s.characters[0].dimensions.length, 1);
+  assert.equal(s.characters[0].dimensions[0].a, 'x');
+  assert.equal(typeof s.characters[0].dimensions[0].id, 'string');
+  assert.equal(typeof s.characters[0].id, 'string');
+  const t = normalizeStory(junk[5]);
+  assert.deepEqual(t.genres.secondary, ['3']);
+  assert.deepEqual(t.setting.rules, ['1']);
+  assert.equal(t.images.length, 1);
+  assert.deepEqual(t.images[0].scenes, []);
+  assert.equal(typeof t.images[0].id, 'string');
+  assert.deepEqual(t.antagonism.forces, []);
+});
+

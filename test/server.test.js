@@ -76,3 +76,38 @@ test('serves the app shell and vendored UI runtime', async () => {
   const spa = await fetch(`${base}/some/client/route`);
   assert.match(await spa.text(), /<div id="app">/);
 });
+
+test('bad input gets clean 4xx answers, never a crash', async () => {
+  const raw = async (method, url, text) => {
+    const res = await fetch(`${base}${url}`, { method, headers: { 'Content-Type': 'application/json' }, body: text });
+    return { status: res.status, body: await res.json() };
+  };
+  assert.equal((await raw('POST', '/api/stories', '{"title": ')).body.error, 'The request body is not valid JSON.');
+  assert.equal((await json('POST', '/api/stories', [1, 2])).status, 400);
+  assert.equal((await json('POST', '/api/stories', { title: { a: 1 } })).body.title, 'Untitled Story');
+  const imp = await json('POST', '/api/stories/import', { title: 'Junk', scenes: 'nope', characters: { a: 1 }, plotlines: null, values: 5 });
+  assert.equal(imp.status, 201);
+  assert.deepEqual(imp.body.scenes, []);
+  assert.equal((await json('PUT', '/api/stories/junk-put', { title: null, scenes: 'x' })).status, 200);
+  for (const task of ['__proto__', 'constructor', 'toString']) {
+    assert.equal((await json('POST', '/api/ai/assist', { task, storyId: 'christmas-carol' })).status, 400, task);
+  }
+});
+
+test('a damaged file in the data folder does not break the story list', async () => {
+  await fs.writeFile(path.join(dataDir, 'stories', 'broken.json'), '{nope');
+  await fs.writeFile(path.join(dataDir, 'stories', 'list.json'), '[1, 2]');
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    const { status, body } = await json('GET', '/api/stories');
+    assert.equal(status, 200);
+    assert.ok(!body.some((s) => s.id === 'broken' || s.id === 'list'));
+    assert.equal((await json('GET', '/api/stories/list')).status, 404);
+  } finally {
+    console.warn = warn;
+    await fs.rm(path.join(dataDir, 'stories', 'broken.json'));
+    await fs.rm(path.join(dataDir, 'stories', 'list.json'));
+  }
+});
+

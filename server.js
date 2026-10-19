@@ -48,7 +48,10 @@ export async function createApp({ dataDir = DATA_DIR, seed = true } = {}) {
   api.get('/stories', wrap(async (req, res) => res.json(await storage.listStories())));
 
   api.post('/stories', wrap(async (req, res) => {
-    const { title, template } = req.body || {};
+    const body = req.body ?? {};
+    if (typeof body !== 'object' || Array.isArray(body)) return res.status(400).json({ error: tl(req.lang, 'Expected a story JSON object') });
+    const { template } = body;
+    const title = typeof body.title === 'string' || typeof body.title === 'number' ? String(body.title).trim() : '';
     if (template === 'sample') {
       const { id, ...rest } = sampleStory(req.lang);
       return res.status(201).json(await storage.createStory({ ...rest, title: tl(req.lang, 'A Christmas Carol (copy)') }, req.lang));
@@ -100,7 +103,13 @@ export async function createApp({ dataDir = DATA_DIR, seed = true } = {}) {
   app.use((err, req, res, next) => {
     const status = err.status || err.statusCode || 500;
     if (status >= 500) console.error(err);
-    res.status(status).json({ error: status >= 500 ? tl(req.lang, 'Internal server error') : err.message });
+    // Body-parser errors happen before the language is read.
+    const lang = req.lang || normLang(req.get('x-story-lang') || req.acceptsLanguages('en', 'it') || 'en');
+    const message = status >= 500 ? tl(lang, 'Internal server error')
+      : err.type === 'entity.parse.failed' ? tl(lang, 'The request body is not valid JSON.')
+        : err.type === 'entity.too.large' ? tl(lang, 'The story is too large (5 MB at most).')
+          : err.message;
+    res.status(status).json({ error: message });
   });
 
   return { app, storage };

@@ -191,29 +191,63 @@ function isPlainObject(x) {
   return x && typeof x === 'object' && !Array.isArray(x);
 }
 
-// Fill missing keys from `defaults` recursively without overwriting existing values.
+// Fill missing or wrongly-typed values from `defaults`, recursively, keeping
+// everything that fits, so imported or hand-edited files can't break the app.
+// A `null` default means the field is free-typed (value charges).
+function conform(v, dv) {
+  if (v === undefined) return structuredClone(dv);
+  if (dv === null) return v;
+  if (Array.isArray(dv)) return Array.isArray(v) ? v.filter((x) => x != null) : structuredClone(dv);
+  if (isPlainObject(dv)) {
+    if (!isPlainObject(v)) return structuredClone(dv);
+    return Object.keys(dv).length ? fill(v, dv) : v;
+  }
+  if (typeof dv === 'string') return typeof v === 'string' ? v : typeof v === 'number' || typeof v === 'boolean' ? String(v) : dv;
+  if (typeof dv === 'number') {
+    const n = typeof v === 'string' && v.trim() ? Number(v) : v;
+    return typeof n === 'number' && Number.isFinite(n) ? n : dv;
+  }
+  if (typeof dv === 'boolean') return typeof v === 'boolean' ? v : dv;
+  return v;
+}
+
 function fill(target, defaults) {
   const out = isPlainObject(target) ? { ...target } : {};
-  for (const [k, dv] of Object.entries(defaults)) {
-    if (!(k in out) || out[k] === undefined) out[k] = structuredClone(dv);
-    else if (isPlainObject(dv) && isPlainObject(out[k]) && Object.keys(dv).length) out[k] = fill(out[k], dv);
-  }
+  for (const [k, dv] of Object.entries(defaults)) out[k] = conform(out[k], dv);
   return out;
 }
 
+// List items: records (plain objects, each with an id the editors rely on) or
+// plain strings (ids, rules, values).
+const records = (a) => a.filter(isPlainObject).map((x) => (typeof x.id === 'string' && x.id ? x : { ...x, id: uid('r') }));
+const strings = (a) => a.filter((x) => typeof x === 'string' || typeof x === 'number').map(String);
+
 export function normalizeStory(raw, l = lang) {
-  const s = fill(raw || {}, DEFAULTS(l));
+  const s = fill(raw, DEFAULTS(l));
+  for (const k of ['plotlines', 'sequences', 'gaps', 'setups', 'images', 'exposition']) s[k] = records(s[k]);
+  s.antagonism.forces = records(s.antagonism.forces);
+  s.genres.comparables = records(s.genres.comparables);
+  s.genres.secondary = strings(s.genres.secondary);
+  s.values.secondary = strings(s.values.secondary);
+  s.setting.rules = strings(s.setting.rules);
+  s.images = s.images.map((im) => ({ ...im, scenes: Array.isArray(im.scenes) ? strings(im.scenes) : [] }));
   if (!s.plotlines.length || !s.plotlines.some((p) => p.id === 'main')) {
     s.plotlines = [mainPlotline(l), ...s.plotlines];
   }
   const blankChar = newCharacter();
-  s.characters = s.characters.map((c) => {
-    const filled = fill(c, { ...blankChar, id: c.id || uid('c') });
+  s.characters = records(s.characters).map((c) => {
+    const filled = fill(c, { ...blankChar, id: (typeof c.id === 'string' && c.id) || uid('c') });
     filled.qualities = fill(filled.qualities, blankChar.qualities);
+    for (const k of ['dimensions', 'choices', 'backstory']) filled[k] = records(filled[k]);
     return filled;
   });
   const blankScene = newScene();
-  s.scenes = s.scenes.map((sc) => fill(sc, { ...blankScene, id: sc.id || uid('s') }));
+  s.scenes = records(s.scenes).map((sc) => {
+    const filled = fill(sc, { ...blankScene, id: (typeof sc.id === 'string' && sc.id) || uid('s') });
+    filled.beats = records(filled.beats);
+    filled.characters = strings(filled.characters);
+    return filled;
+  });
   return s;
 }
 

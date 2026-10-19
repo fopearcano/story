@@ -41,23 +41,37 @@ export class Storage {
     await fs.rename(tmp, file);
   }
 
-  async listStories() {
-    const files = (await fs.readdir(this.storiesDir)).filter((f) => f.endsWith('.json'));
+  // Every *.json in a folder that is a valid record, keyed by file name. A
+  // damaged or stray file is skipped (and logged) instead of breaking the list.
+  async #listDir(dir) {
     const out = [];
-    for (const f of files) {
-      const s = await this.#readJson(path.join(this.storiesDir, f));
-      if (!s) continue;
-      out.push({
-        id: s.id, title: s.title, logline: s.logline || '', updatedAt: s.updatedAt, createdAt: s.createdAt,
-        scenes: (s.scenes || []).length, characters: (s.characters || []).length,
-      });
+    for (const f of (await fs.readdir(dir)).filter((x) => x.endsWith('.json'))) {
+      const id = f.slice(0, -5);
+      if (!isValidId(id)) continue;
+      try {
+        const data = await this.#readJson(path.join(dir, f));
+        if (data && typeof data === 'object' && !Array.isArray(data)) out.push({ id, data });
+      } catch (err) {
+        console.warn(`Skipping unreadable ${path.join(dir, f)}: ${err.message}`);
+      }
     }
+    return out;
+  }
+
+  async listStories() {
+    const count = (x) => (Array.isArray(x) ? x.length : 0);
+    const text = (x) => (typeof x === 'string' ? x : '');
+    const out = (await this.#listDir(this.storiesDir)).map(({ id, data: s }) => ({
+      id, title: text(s.title), logline: text(s.logline), updatedAt: s.updatedAt, createdAt: s.createdAt,
+      scenes: count(s.scenes), characters: count(s.characters),
+    }));
     return out.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
   }
 
   async getStory(id) {
     const s = await this.#readJson(this.#file(this.storiesDir, id));
-    return s ? normalizeStory(s) : null;
+    // The file name is the id, whatever the file says.
+    return s && typeof s === 'object' && !Array.isArray(s) ? { ...normalizeStory(s), id } : null;
   }
 
   async saveStory(story) {
@@ -83,12 +97,9 @@ export class Storage {
 
   // ---- chats --------------------------------------------------------------
   async listChats(storyId) {
-    const files = (await fs.readdir(this.chatsDir)).filter((f) => f.endsWith('.json'));
-    const out = [];
-    for (const f of files) {
-      const c = await this.#readJson(path.join(this.chatsDir, f));
-      if (c && c.storyId === storyId) out.push({ id: c.id, title: c.title, characterId: c.characterId, updatedAt: c.updatedAt });
-    }
+    const out = (await this.#listDir(this.chatsDir))
+      .filter(({ data: c }) => c.storyId === storyId)
+      .map(({ id, data: c }) => ({ id, title: c.title, characterId: c.characterId, updatedAt: c.updatedAt }));
     return out.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
   }
 

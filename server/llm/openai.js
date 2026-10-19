@@ -49,7 +49,8 @@ export function toOpenAIMessages(messages, provider, { plain = false } = {}) {
       const calls = plain ? [] : m.content.filter((b) => b.type === 'tool_use').map((b) => ({
         id: toolCallId(provider, b.id), type: 'function', function: { name: b.name, arguments: JSON.stringify(b.input ?? {}) },
       }));
-      if (text || calls.length) push({ role: 'assistant', content: text, ...(calls.length && { tool_calls: calls }) });
+      // Tool-call turns without text carry `content: null`, as in the OpenAI spec.
+      if (text || calls.length) push({ role: 'assistant', content: text || (calls.length ? null : ''), ...(calls.length && { tool_calls: calls }) });
     } else {
       if (!plain) {
         for (const r of m.content.filter((b) => b.type === 'tool_result')) {
