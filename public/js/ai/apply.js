@@ -2,6 +2,7 @@
 // tool input before showing it) and the browser (to apply an accepted proposal).
 import { newCharacter, newScene, uid, QUALITY_AXES, ROLES } from '../model.js';
 import { ARC_PLOTS } from '../kb/genres.js';
+import { t } from '../i18n.js';
 
 const TEXT_FIELDS = ['name', 'mask', 'core', 'conscious', 'unconscious', 'motivation', 'capacities', 'chance', 'risk', 'empathy', 'attitude', 'bringsOut', 'obsession', 'notes'];
 const CHARZ_FIELDS = ['age', 'occupation', 'look', 'speech', 'home', 'attitudes'];
@@ -10,12 +11,25 @@ const MAX = 2000;
 const str = (v) => (typeof v === 'string' ? v.slice(0, MAX).trim() : null);
 const clampInt = (v, lo, hi) => (Number.isFinite(Number(v)) ? Math.max(lo, Math.min(hi, Math.round(Number(v)))) : null);
 
+// Labels for the review card, in the interface language (English on the server).
 export const FIELD_LABELS = {
-  name: 'Name', role: 'Role', mask: 'Characterization (mask)', core: 'True character (heart)', conscious: 'Conscious desire',
-  unconscious: 'Unconscious desire', motivation: 'Motivation', capacities: 'Capacities', willpower: 'Willpower', chance: 'Chance to succeed',
-  risk: 'Risk (worst outcome)', empathy: 'Empathy hook', attitude: 'Attitude', bringsOut: 'Brings out in the protagonist',
-  obsession: 'Comic obsession', notes: 'Notes', arc_plot: 'Arc type', arc_from: 'Arc from', arc_to: 'Arc to',
+  name: t('Name'), role: t('Role'), mask: t('Characterization (mask)'), core: t('True character (heart)'), conscious: t('Conscious desire'),
+  unconscious: t('Unconscious desire'), motivation: t('Motivation'), capacities: t('Capacities'), willpower: t('Willpower'), chance: t('Chance to succeed'),
+  risk: t('Risk (worst outcome)'), empathy: t('Empathy hook'), attitude: t('Attitude'), bringsOut: t('Brings out in the protagonist'),
+  obsession: t('Comic obsession'), notes: t('Notes'), arc_plot: t('Arc type'), arc_from: t('Arc from'), arc_to: t('Arc to'),
 };
+const CHARZ_LABELS = {
+  age: t('Age'), occupation: t('Occupation'), look: t('Look'), speech: t('Speech'), home: t('Home'), attitudes: t('Attitudes'),
+};
+// Role and arc ids as the card shows them.
+export const ROLE_NAMES = {
+  protagonist: t('protagonist'), antagonist: t('antagonist'), supporting: t('supporting'), minor: t('minor'),
+};
+const ARC_NAMES = {
+  maturation: t('maturation'), redemption: t('redemption'), education: t('education'),
+  testing: t('testing'), punitive: t('punitive'), disillusionment: t('disillusionment'),
+};
+const fieldValue = (k, v) => (k === 'role' ? ROLE_NAMES[v] : k === 'arc_plot' ? ARC_NAMES[v] : null) || String(v);
 
 // Returns { ok: true, value } or { ok: false, error }.
 export function validateCharacterProposal(input) {
@@ -79,7 +93,7 @@ export function applyCharacterProposal(story, p) {
   const s = structuredClone(story);
   let c = p.character_id === 'new' ? null : s.characters.find((x) => x.id === p.character_id);
   if (!c) {
-    c = newCharacter({ name: p.fields.name || 'New character' });
+    c = newCharacter({ name: p.fields.name || t('New character') });
     s.characters.push(c);
   }
   const { arc_plot, arc_from, arc_to, ...plain } = p.fields;
@@ -101,7 +115,7 @@ export function applySceneProposal(story, p) {
     title: p.title, summary: p.summary, value: p.value || '', open: p.open ?? null, close: p.close ?? null,
     choice: p.choice || '', gapExpect: p.gap_expect || '', gapResult: p.gap_result || '',
     characters: (p.character_ids || []).filter((id) => s.characters.some((c) => c.id === id)),
-    func: p.rationale || 'Pressure test proposed by the AI partner.',
+    func: p.rationale || t('Pressure test proposed by the AI partner.'),
   });
   const i = p.after_scene_id ? s.scenes.findIndex((x) => x.id === p.after_scene_id) : -1;
   if (i >= 0) s.scenes.splice(i + 1, 0, scene); else s.scenes.push(scene);
@@ -111,14 +125,17 @@ export function applySceneProposal(story, p) {
 // Human-readable list of the changes in a character proposal (for the review card).
 export function describeCharacterProposal(p) {
   const rows = [];
-  for (const [k, v] of Object.entries(p.fields || {})) rows.push([FIELD_LABELS[k] || k, String(v)]);
-  for (const [k, v] of Object.entries(p.characterization || {})) rows.push([k[0].toUpperCase() + k.slice(1), v]);
+  for (const [k, v] of Object.entries(p.fields || {})) rows.push([FIELD_LABELS[k] || k, fieldValue(k, v)]);
+  for (const [k, v] of Object.entries(p.characterization || {})) rows.push([CHARZ_LABELS[k] || k[0].toUpperCase() + k.slice(1), v]);
   for (const [k, v] of Object.entries(p.qualities || {})) {
     const axis = QUALITY_AXES.find((a) => a.id === k);
-    rows.push([`${axis ? axis.pos + '/' + axis.neg : k}`, `mask ${v.mask ?? '–'}, heart ${v.core ?? '–'}`]);
+    rows.push([`${axis ? axis.pos + '/' + axis.neg : k}`, t('mask {mask}, heart {core}', { mask: v.mask ?? '–', core: v.core ?? '–' })]);
   }
-  for (const d of p.add_dimensions || []) rows.push(['+ Dimension', `${d.a} ↔ ${d.b}`]);
-  for (const c of p.add_choices || []) rows.push(['+ Choice under pressure', `${c.dilemma ? c.dilemma + ': ' : ''}${c.choice}${c.reveals ? ` (reveals: ${c.reveals})` : ''}`]);
-  for (const b of p.add_backstory || []) rows.push(['+ Backstory', b.event]);
+  for (const d of p.add_dimensions || []) rows.push([t('+ Dimension'), `${d.a} ↔ ${d.b}`]);
+  for (const c of p.add_choices || []) {
+    const choice = `${c.dilemma ? c.dilemma + ': ' : ''}${c.choice}`;
+    rows.push([t('+ Choice under pressure'), c.reveals ? t('{choice} (reveals: {reveals})', { choice, reveals: c.reveals }) : choice]);
+  }
+  for (const b of p.add_backstory || []) rows.push([t('+ Backstory'), b.event]);
   return rows;
 }

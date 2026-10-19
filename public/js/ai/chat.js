@@ -7,32 +7,36 @@ import { useApp } from '../appctx.js';
 import { Btn, Icon, Select } from '../ui.js';
 import { markdownToHtml } from '../markdown.js';
 import { AiSetup, aiAvailable } from './setup.js';
-import { applyCharacterProposal, applySceneProposal, describeCharacterProposal } from './apply.js';
+import { applyCharacterProposal, applySceneProposal, describeCharacterProposal, ROLE_NAMES } from './apply.js';
+import { t } from '../i18n.js';
 
 const TOOL_STATUS = {
-  get_story_overview: 'Reading the story…',
-  get_character: 'Studying the character…',
-  propose_character_update: 'Drafting a proposal…',
-  propose_scene: 'Designing a pressure-test scene…',
+  get_story_overview: t('Reading the story…'),
+  get_character: t('Studying the character…'),
+  propose_character_update: t('Drafting a proposal…'),
+  propose_scene: t('Designing a pressure-test scene…'),
 };
 
+// Sent as the writer's own message, so they follow the interface language.
 function quickPrompts(c, prot) {
-  const name = c ? c.name || 'this character' : null;
+  const name = c ? c.name || t('this character') : null;
   if (c) {
     return [
-      `Interview ${name} with me, one question at a time.`,
-      `What is ${name}'s unconscious desire, and how does it contradict what they consciously want?`,
-      `Find a consistent contradiction that gives ${name} real dimension.`,
-      `Design a dilemma (irreconcilable goods or lesser of two evils) whose choice would reveal ${name}'s true character.`,
-      c.role === 'protagonist' ? `Who in the cast should bring out ${name}'s hidden side? Propose a supporting character.` : `How should ${name} bring out a side of ${prot ? prot.name : 'the protagonist'}?`,
-      'Fill in the empty fields with your best proposal.',
+      t('Interview {name} with me, one question at a time.', { name }),
+      t('What is {name}\'s unconscious desire, and how does it contradict what they consciously want?', { name }),
+      t('Find a consistent contradiction that gives {name} real dimension.', { name }),
+      t('Design a dilemma (irreconcilable goods or lesser of two evils) whose choice would reveal {name}\'s true character.', { name }),
+      c.role === 'protagonist' ? t('Who in the cast should bring out {name}\'s hidden side? Propose a supporting character.', { name })
+        : prot ? t('How should {name} bring out a side of {protagonist}?', { name, protagonist: prot.name })
+          : t('How should {name} bring out a side of the protagonist?', { name }),
+      t('Fill in the empty fields with your best proposal.'),
     ];
   }
   return [
-    'Read my story and tell me which character needs the most work.',
-    'Help me create a protagonist from scratch.',
-    'Design a polarized cast around my protagonist.',
-    'Make my forces of antagonism stronger — who or what opposes the protagonist?',
+    t('Read my story and tell me which character needs the most work.'),
+    t('Help me create a protagonist from scratch.'),
+    t('Design a polarized cast around my protagonist.'),
+    t('Make my forces of antagonism stronger — who or what opposes the protagonist?'),
   ];
 }
 
@@ -81,7 +85,7 @@ export function ChatDrawer({ focusId, seedPrompt, onClose, onFocusChange }) {
   const send = async (text) => {
     const message = (text ?? input).trim();
     if (!message || busy) return;
-    setInput(''); setErr(''); setBusy(true); setStatus('Thinking…'); setThinking('');
+    setInput(''); setErr(''); setBusy(true); setStatus(t('Thinking…')); setThinking('');
     setDisplay((d) => [...d, { role: 'user', parts: [{ type: 'text', text: message }] }, { role: 'assistant', parts: [] }]);
     ctrl.current = new AbortController();
     try {
@@ -95,8 +99,8 @@ export function ChatDrawer({ focusId, seedPrompt, onClose, onFocusChange }) {
             if (lp && lp.type === 'text') m.parts[m.parts.length - 1] = { ...lp, text: lp.text + data.text };
             else m.parts.push({ type: 'text', text: data.text });
           });
-        } else if (ev === 'thinking') setThinking((t) => (t + data.text).slice(-220));
-        else if (ev === 'tool') { setStatus(TOOL_STATUS[data.name] || 'Working…'); setThinking(''); }
+        } else if (ev === 'thinking') setThinking((prev) => (prev + data.text).slice(-220));
+        else if (ev === 'tool') { setStatus(TOOL_STATUS[data.name] || t('Working…')); setThinking(''); }
         else if (ev === 'status') setStatus(data.text);
         else if (ev === 'proposal') {
           setProposals((p) => ({ ...p, [data.id]: data }));
@@ -125,24 +129,24 @@ export function ChatDrawer({ focusId, seedPrompt, onClose, onFocusChange }) {
     try { await api.decideProposal(chatId, p.id, status); } catch (e) { setErr(e.message); }
   };
 
-  return html`<aside class="drawer" aria-label="AI partner">
+  return html`<aside class="drawer" aria-label=${t('AI partner')}>
     <div class="drawer-head">
       <div class="row">
-        <span class="drawer-title grow"><${Icon} name="spark" /> AI partner <span class="muted small" style="font-weight:400">· character builder</span></span>
-        <button class="icon-btn" onClick=${onClose} title="Close"><${Icon} name="close" /></button>
+        <span class="drawer-title grow"><${Icon} name="spark" /> ${t('AI partner')} <span class="muted small" style="font-weight:400">· ${t('character builder')}</span></span>
+        <button class="icon-btn" onClick=${onClose} title=${t('Close')}><${Icon} name="close" /></button>
       </div>
       ${ready && html`<div class="row">
         <${Select} class="grow" value=${focusId || ''} onChange=${(v) => onFocusChange && onFocusChange(v)}
-          options=${[{ id: '', label: 'Whole cast' }, ...story.characters.map((c) => ({ id: c.id, label: `${c.name || 'Unnamed'} (${c.role})` }))]} />
+          options=${[{ id: '', label: t('Whole cast') }, ...story.characters.map((c) => ({ id: c.id, label: `${c.name || t('Unnamed')} (${ROLE_NAMES[c.role] || c.role})` }))]} />
         <${Select} class="grow" value=${chatId} onChange=${openChat}
-          options=${[{ id: '', label: 'New conversation' }, ...chats.map((c) => ({ id: c.id, label: c.title || 'Conversation' }))]} />
+          options=${[{ id: '', label: t('New conversation') }, ...chats.map((c) => ({ id: c.id, label: c.title || t('Conversation') }))]} />
       </div>`}
     </div>
     <div class="drawer-body" ref=${bodyRef}>
       ${!ready ? html`<${AiSetup} />` : html`
         ${!display.length && html`<div class="callout">
-          <b>${focus ? `Developing ${focus.name || 'this character'}` : 'Your dramaturg'}</b>
-          <p>Ask for an interview, a contradiction, an unconscious desire, a dilemma that reveals true character, or a cast designed around your protagonist. Proposed changes appear as cards — nothing changes until you accept.</p>
+          <b>${focus ? t('Developing {name}', { name: focus.name || t('this character') }) : t('Your dramaturg')}</b>
+          <p>${t('Ask for an interview, a contradiction, an unconscious desire, a dilemma that reveals true character, or a cast designed around your protagonist. Proposed changes appear as cards — nothing changes until you accept.')}</p>
         </div>`}
         ${display.map((m) => html`<div class=${cx('msg', m.role)}>
           ${m.role === 'user' ? m.parts.map((p) => p.text) : m.parts.map((p) => {
@@ -159,10 +163,10 @@ export function ChatDrawer({ focusId, seedPrompt, onClose, onFocusChange }) {
     ${ready && html`<div class="drawer-foot">
       ${!busy && html`<div class="quick">${quickPrompts(focus, prot).slice(0, 4).map((q) => html`<button onClick=${() => send(q)}>${q.length > 52 ? `${q.slice(0, 50)}…` : q}</button>`)}</div>`}
       <div class="composer">
-        <textarea rows="2" placeholder=${focus ? `Ask about ${focus.name || 'this character'}…` : 'Ask about your characters…'} value=${input}
+        <textarea rows="2" placeholder=${focus ? t('Ask about {name}…', { name: focus.name || t('this character') }) : t('Ask about your characters…')} value=${input}
           onInput=${(e) => setInput(e.target.value)}
           onKeyDown=${(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
-        ${busy ? html`<${Btn} icon="close" onClick=${() => ctrl.current && ctrl.current.abort()} title="Stop" />` : html`<${Btn} kind="primary" icon="send" onClick=${() => send()} title="Send" />`}
+        ${busy ? html`<${Btn} icon="close" onClick=${() => ctrl.current && ctrl.current.abort()} title=${t('Stop')} />` : html`<${Btn} kind="primary" icon="send" onClick=${() => send()} title=${t('Send')} />`}
       </div>
     </div>`}
   </aside>`;
@@ -170,10 +174,13 @@ export function ChatDrawer({ focusId, seedPrompt, onClose, onFocusChange }) {
 
 function ProposalCard({ p, story, onDecide }) {
   const isChar = p.type === 'character';
-  const target = isChar ? (p.payload.character_id === 'new' ? `New character: ${p.payload.fields.name}` : `Update ${(story.characters.find((c) => c.id === p.payload.character_id) || {}).name || p.characterName || 'character'}`) : `New scene: ${p.payload.title}`;
+  const current = isChar && ((story.characters.find((c) => c.id === p.payload.character_id) || {}).name || p.characterName);
+  const target = !isChar ? t('New scene: {title}', { title: p.payload.title })
+    : p.payload.character_id === 'new' ? t('New character: {name}', { name: p.payload.fields.name })
+      : current ? t('Update {name}', { name: current }) : t('Update character');
   const rows = isChar ? describeCharacterProposal(p.payload) : [
-    ['Summary', p.payload.summary], p.payload.value && ['Value', `${p.payload.value} (${p.payload.open ?? '?'} → ${p.payload.close ?? '?'})`],
-    p.payload.choice && ['Choice under pressure', p.payload.choice], p.payload.rationale && ['Why', p.payload.rationale],
+    [t('Summary'), p.payload.summary], p.payload.value && [t('Value'), `${p.payload.value} (${p.payload.open ?? '?'} → ${p.payload.close ?? '?'})`],
+    p.payload.choice && [t('Choice under pressure'), p.payload.choice], p.payload.rationale && [t('Why'), p.payload.rationale],
   ].filter(Boolean);
   return html`<div class=${cx('proposal', p.status)}>
     <div class="proposal-head"><${Icon} name="spark" size=${14} />${target}</div>
@@ -183,9 +190,9 @@ function ProposalCard({ p, story, onDecide }) {
     </div>
     <div class="proposal-foot">
       ${p.status === 'pending' ? html`
-        <${Btn} small kind="primary" icon="check" onClick=${() => onDecide(p, 'accepted')}>Accept</${Btn}>
-        <${Btn} small icon="x" onClick=${() => onDecide(p, 'rejected')}>Reject</${Btn}>`
-        : html`<span class=${cx('status', p.status === 'accepted' ? 'pass' : 'todo')}><${Icon} name=${p.status === 'accepted' ? 'check' : 'x'} size=${14} />${p.status === 'accepted' ? 'Accepted — applied to your story' : 'Rejected'}</span>`}
+        <${Btn} small kind="primary" icon="check" onClick=${() => onDecide(p, 'accepted')}>${t('Accept')}</${Btn}>
+        <${Btn} small icon="x" onClick=${() => onDecide(p, 'rejected')}>${t('Reject')}</${Btn}>`
+        : html`<span class=${cx('status', p.status === 'accepted' ? 'pass' : 'todo')}><${Icon} name=${p.status === 'accepted' ? 'check' : 'x'} size=${14} />${p.status === 'accepted' ? t('Accepted — applied to your story') : t('Rejected')}</span>`}
     </div>
   </div>`;
 }

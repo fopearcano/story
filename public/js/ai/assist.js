@@ -6,11 +6,12 @@ import { useStory } from '../store.js';
 import { useApp } from '../appctx.js';
 import { markdownToHtml } from '../markdown.js';
 import { AiSetup, aiAvailable } from './setup.js';
+import { t } from '../i18n.js';
 
 export function AssistButton({ task, label, sceneId, input, small = true, title }) {
   const [open, setOpen] = useState(false);
   return html`<span>
-    <${Btn} kind="ai" icon="spark" small=${small} onClick=${() => setOpen(true)} title=${title || 'Ask the AI partner'}>${label}</${Btn}>
+    <${Btn} kind="ai" icon="spark" small=${small} onClick=${() => setOpen(true)} title=${title || t('Ask the AI partner')}>${label}</${Btn}>
     ${open && html`<${AssistModal} task=${task} label=${label} sceneId=${sceneId} input=${input} onClose=${() => setOpen(false)} />`}
   </span>`;
 }
@@ -30,7 +31,7 @@ function AssistModal({ task, label, sceneId, input, onClose }) {
     try {
       await flush();
       await streamSse('/api/ai/assist', { task, storyId: story.id, sceneId, input }, (ev, data) => {
-        if (ev === 'text') setText((t) => t + data.text);
+        if (ev === 'text') setText((prev) => prev + data.text);
         else if (ev === 'error') setErr(data.message);
       }, { signal: ctrl.current.signal });
       setState('done');
@@ -43,13 +44,13 @@ function AssistModal({ task, label, sceneId, input, onClose }) {
 
   return html`<${Modal} title=${label} onClose=${onClose} wide>
     ${!ready ? html`<${AiSetup} />` : html`<div class="stack">
-      ${state === 'running' && !text && html`<div class="thinking-line"><span class="pulse" />Thinking about your story…</div>`}
+      ${state === 'running' && !text && html`<div class="thinking-line"><span class="pulse" />${t('Thinking about your story…')}</div>`}
       <div class="prose assist-out" dangerouslySetInnerHTML=${{ __html: markdownToHtml(text) }} />
       ${err && html`<p class="err">${err}</p>`}
       <div class="row">
-        ${state === 'running' ? html`<${Btn} icon="close" onClick=${() => ctrl.current && ctrl.current.abort()}>Stop</${Btn}>` : html`<${Btn} icon="spark" kind="ai" onClick=${run}>Try again</${Btn}>`}
-        ${text && html`<${Btn} icon="copy" onClick=${() => navigator.clipboard && navigator.clipboard.writeText(text)}>Copy</${Btn}>`}
-        <span class="tiny muted grow" style="text-align:right">Suggestions only — nothing is changed in your story.</span>
+        ${state === 'running' ? html`<${Btn} icon="close" onClick=${() => ctrl.current && ctrl.current.abort()}>${t('Stop')}</${Btn}>` : html`<${Btn} icon="spark" kind="ai" onClick=${run}>${t('Try again')}</${Btn}>`}
+        ${text && html`<${Btn} icon="copy" onClick=${() => navigator.clipboard && navigator.clipboard.writeText(text)}>${t('Copy')}</${Btn}>`}
+        <span class="tiny muted grow" style="text-align:right">${t('Suggestions only — nothing is changed in your story.')}</span>
       </div>
     </div>`}
   </${Modal}>`;
