@@ -51,6 +51,11 @@ test('controlling idea sentence joins value and cause', () => {
   assert.equal(controllingIdeaSentence(s), 'Justice is restored because the protagonist is more clever than the criminal.');
   s.meaning.cause = 'when we learn to love unconditionally';
   assert.equal(controllingIdeaSentence(s), 'Justice is restored when we learn to love unconditionally.');
+  s.meaning = { ...s.meaning, value: 'la giustizia trionfa', cause: 'il protagonista è più astuto del criminale' };
+  assert.equal(controllingIdeaSentence(s, 'it'), 'La giustizia trionfa perché il protagonista è più astuto del criminale.');
+  // A story written in Italian, viewed in English, keeps its own conjunction.
+  s.meaning.cause = 'quando impariamo ad amare';
+  assert.equal(controllingIdeaSentence(s, 'en'), 'La giustizia trionfa quando impariamo ad amare.');
 });
 
 test('setIn is immutable and structural', () => {

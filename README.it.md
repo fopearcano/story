@@ -43,6 +43,8 @@ idea guida, incidente scatenante, complicazioni progressive, crisi, climax,
 scarto tra aspettativa e risultato, negazione della negazione, archetrama,
 minitrama, antitrama, semina e raccolta…
 
+![Analisi delle scene](docs/screenshots/it-scenes.png)
+
 ## Partner IA (facoltativo)
 
 Tutto funziona anche senza IA. Per attivarla:

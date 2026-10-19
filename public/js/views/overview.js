@@ -3,7 +3,7 @@ import { html, useState, useEffect, useMemo, cx } from '../lib.js';
 import { useStory } from '../store.js';
 import { useApp } from '../appctx.js';
 import { Page, Card, Field, Stat, Btn, Icon, Cite, href, go, Segmented, Meter, rich } from '../ui.js';
-import { t, lang } from '../i18n.js';
+import { t, lang, num } from '../i18n.js';
 import { ArcChart, FivePartBar } from '../charts/structure.js';
 import { TriangleChart, SolarSystem, ScoreRing } from '../charts/diagrams.js';
 import { diagnose, score, groupScores, GROUPS } from '../doctor.js';
@@ -94,7 +94,7 @@ export function DashboardView() {
       <${Stat} n=${`${turnPct}%`} label=${t('Scenes that turn')} />
       <${Stat} n=${st.characters} label=${t('Characters')} />
       <${Stat} n=${st.locations} label=${t('Locations')} />
-      <${Stat} n=${st.pages} label=${t('Pages (≈ minutes)')} />
+      <${Stat} n=${num(st.pages)} label=${t('Pages (≈ minutes)')} />
     </div><div class="mt"><${MethodStepper} story=${story} /></div></div>
     <${Card} title=${t('Value arc')} kicker=${t('Every scene a turning point')} cite=${['scene', 'act-rhythm']} class="mt"
       actions=${html`<a class="btn small" href=${href(story.id, 'structure')}>${t('Acts & arc')}</a>`}>

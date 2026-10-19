@@ -532,6 +532,11 @@ kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--axis); 
   .dilemma svg { display: none; }
   .pitch .pitch-text { font-size: 22px; }
 }
+@media (max-width: 520px) {
+  .topbar { gap: 6px; }
+  .topbar .btn.ai span { display: none; }
+  .save-state { font-size: 0; gap: 0; }
+}
 @media print {
   .sidebar, .topbar, .drawer, .page-actions, .btn { display: none !important; }
   .shell { display: block; }

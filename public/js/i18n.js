@@ -44,5 +44,7 @@ export const t = (s, params) => tl(lang, s, params);
 export const tln = (l, n, one, other, params) => tl(l, n === 1 ? one : other, { n, ...params });
 export const tn = (n, one, other, params) => tln(lang, n, one, other, params);
 
-// Locale for dates and numbers.
+// Locale for dates (the browser's own for English), and number formatting
+// that follows the interface language (58.5 / 58,5).
 export const locale = lang === 'it' ? 'it-IT' : undefined;
+export const num = (n) => Number(n).toLocaleString(lang === 'it' ? 'it-IT' : 'en-US', { maximumFractionDigits: 2 });

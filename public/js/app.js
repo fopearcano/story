@@ -158,7 +158,7 @@ function StoryShell({ route, ai, refreshAi, dark, toggleTheme }) {
             <button class="icon-btn" onClick=${store.redo} disabled=${!store.canRedo} title=${t('Redo (Ctrl+Shift+Z)')}><${Icon} name="redo" /></button>
             <${LangSwitch} />
             <button class="icon-btn" onClick=${toggleTheme} title=${t('Toggle theme')}><${Icon} name=${dark ? 'sun' : 'moon'} /></button>
-            <button class="btn ai small" onClick=${() => (drawer.open ? setDrawer({ ...drawer, open: false }) : openAi(route.view === 'characters' ? route.sub : ''))}><${Icon} name="spark" size=${14} /><span>${t('AI partner')}</span></button>
+            <button class="btn ai small" title=${t('AI partner')} aria-label=${t('AI partner')} onClick=${() => (drawer.open ? setDrawer({ ...drawer, open: false }) : openAi(route.view === 'characters' ? route.sub : ''))}><${Icon} name="spark" size=${14} /><span>${t('AI partner')}</span></button>
           </div>
           <main class="content"><${View} sub=${route.sub} /></main>
         </div>

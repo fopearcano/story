@@ -12,6 +12,8 @@ import { chargeLabel } from '../kb/values.js';
 import { LEVELS, IRONIC_PATTERNS, TRANSITION_HINGES, PROGRESSION_TECHNIQUES } from '../kb/principles.js';
 import { AssistButton } from '../ai/assist.js';
 
+const STAGE_LABELS = { positive: t('Positive'), contrary: t('Contrary'), contradictory: t('Contradictory'), negation: t('Negation of the Negation') };
+
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
 // endingType() returns an id; the Climax card shows it as a sentence.
 const READS_AS = { idealistic: t('Reads as idealistic'), pessimistic: t('Reads as pessimistic'), ironic: t('Reads as ironic') };
@@ -113,7 +115,7 @@ export function StructureView() {
             <td class="num">${Math.round((a.endPct - a.startPct) * 100)}%</td>
             <td>${a.climax ? html`<a href=${href(story.id, 'scenes', a.climax.id)}>${sceneLabel(story, a.climax.id)}</a>` : html`<span class="muted">${t('unfinished (no act climax yet)')}</span>`}</td>
             <td>${a.climax && html`<${ChargeChip} v=${a.climax.close} /> <span class="tiny muted">${hasCharge(a.climax.close) ? chargeLabel(a.climax.close, decl) : ''}</span>`}</td>
-            <td class="small">${story.values.actStages[a.n] || html`<span class="muted">—</span>`}</td>
+            <td class="small">${STAGE_LABELS[story.values.actStages[a.n]] || story.values.actStages[a.n] || html`<span class="muted">—</span>`}</td>
           </tr>`)}</tbody></table>`}
         ${pen && ult && hasCharge(pen.close) && hasCharge(ult.close) && html`<div class="callout mt">
           <b>${t('Act rhythm:')}</b> ${t('penultimate climax')} <${ChargeChip} v=${pen.close} /> → ${t('story climax')} <${ChargeChip} v=${ult.close} />. ${Math.sign(Number(pen.close)) === Math.sign(Number(ult.close)) && Number(ult.close) !== 0 ? t('The two last climaxes share a charge — the ending will feel halved.') : t('They contrast: the ending lands with full power.')}

@@ -1,6 +1,6 @@
 // Scenes: list + five-step scene analysis editor (ch. 2, 10, 11).
 import { html, useState, useMemo, cx } from '../lib.js';
-import { t } from '../i18n.js';
+import { t, num } from '../i18n.js';
 import { useStory } from '../store.js';
 import { Page, Card, Field, Select, Slider, Toggle, Segmented, Principle, Cite, ListEditor, Btn, Icon, ChargePicker, TurnArrow, Chips, Empty, href, go, rich } from '../ui.js';
 import { ArcChart } from '../charts/structure.js';
@@ -198,7 +198,7 @@ export function ScenesView({ sub }) {
                 <${Field} label=${t('Time')} value=${current.time} onInput=${(v) => set(['time'], v)} />
               </div>
               <div class="fields two">
-                <${Slider} label=${t('Length (pages ≈ minutes)')} value=${current.pages} min=${0.5} max=${10} step=${0.5} show=${(v) => v} onInput=${(v) => set(['pages'], v)} />
+                <${Slider} label=${t('Length (pages ≈ minutes)')} value=${current.pages} min=${0.5} max=${10} step=${0.5} show=${(v) => num(v)} onInput=${(v) => set(['pages'], v)} />
                 <${Slider} label=${t('Tempo (activity)')} value=${current.tempo} min=${1} max=${5} step=${1} show=${(v) => `${v}/5`} onInput=${(v) => set(['tempo'], v)} />
               </div>
               <${Segmented} value=${current.mode} onChange=${(v) => set(['mode'], v)} options=${MODES.map((m) => ({ id: m.id, label: m.label, hint: m.hint }))} />

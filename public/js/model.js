@@ -329,8 +329,11 @@ export function controllingIdeaSentence(story, l = lang) {
   if (!m.value && !m.cause) return '';
   const value = (m.value || '…').trim();
   const cause = (m.cause || '…').trim();
-  const join = CAUSE_JOIN[l] || CAUSE_JOIN.en;
-  return `${value.charAt(0).toUpperCase()}${value.slice(1)} ${join.starts.test(cause) ? '' : join.word}${cause}`.replace(/\s+/g, ' ').trim().replace(/([^.!?])$/, '$1.');
+  // A story can be written in another language than the interface, so any
+  // known conjunction counts as already joined.
+  const joined = Object.values(CAUSE_JOIN).some((j) => j.starts.test(cause));
+  const word = (CAUSE_JOIN[l] || CAUSE_JOIN.en).word;
+  return `${value.charAt(0).toUpperCase()}${value.slice(1)} ${joined ? '' : word}${cause}`.replace(/\s+/g, ' ').trim().replace(/([^.!?])$/, '$1.');
 }
 
 export function endingType(story) {
