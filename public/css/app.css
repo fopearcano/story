@@ -107,7 +107,8 @@ p { margin: 0.4em 0; }
 .story-switch b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .story-switch a { color: var(--ink-2); font-size: 12px; }
 .nav-group { margin-top: 8px; }
-.nav-group-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 6px 10px 4px; display: flex; justify-content: space-between; }
+.nav-group-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 6px 10px 4px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.nav-group-title span:last-child:not(:first-child) { flex: none; }
 .nav-link {
   display: flex; align-items: center; gap: 9px; padding: 6px 10px; border-radius: 7px;
   text-decoration: none; color: var(--ink-2); font-size: 14px;

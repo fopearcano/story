@@ -41,7 +41,7 @@ export function HomeView() {
         <h1>${t('Design stories from the inside out.')}</h1>
         <p>${t('Build premise and Controlling Idea, characters with true depth, the five-part design, turning scenes and forces of antagonism — visually, with a Story Doctor that checks your draft against the principles. An optional AI partner helps you develop characters.')}</p>
         <form class="row mt" onSubmit=${create}>
-          <input class="input grow" style="max-width:340px" placeholder=${t('Working title')} value=${title} onInput=${(e) => setTitle(e.target.value)} aria-label=${t('Working title')} />
+          <input class="input grow" style="max-width:340px;min-width:200px" placeholder=${t('Working title')} value=${title} onInput=${(e) => setTitle(e.target.value)} aria-label=${t('Working title')} />
           <${Btn} kind="primary" icon="plus" type="submit">${t('New story')}</${Btn}>
           <${Btn} icon="copy" onClick=${copySample}>${t('Copy the example')}</${Btn}>
           <${Btn} icon="upload" onClick=${() => fileRef.current.click()}>${t('Import JSON')}</${Btn}>
