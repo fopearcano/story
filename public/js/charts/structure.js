@@ -40,7 +40,7 @@ export function ArcChart({ story, height = 340, onSelect, selected, compact }) {
         ${!compact && html`<text x=${x(a.start) + 6} y=${mt - 8} font-size="11" font-weight="700" letter-spacing="0.08em" class="t-muted">${t('ACT {n} · {pct}%', { n: ROMAN[a.n] || a.n, pct: Math.round((a.endPct - a.startPct) * 100) })}</text>`}
       </g>`)}
       ${[3, 2, 1, 0, -1, -2, -3].map((v) => html`<line x1=${ml} x2=${W - mr} y1=${y(v)} y2=${y(v)} class=${v === 0 ? 'axis-line' : 'grid-line'} />`)}
-      ${!compact && yLabels.map(([v, label]) => html`<text x=${ml - 8} y=${y(v) + 4} text-anchor="end" font-size="11.5" class=${v === 3 || v === -3 ? 't-ink' : ''}>${trunc(label, 20)}</text>`)}
+      ${!compact && yLabels.map(([v, label]) => html`<text x=${ml - 8} y=${y(v) + 4} text-anchor="end" font-size="11.5" class=${v === 3 || v === -3 ? 'y-label t-ink' : 'y-label'}>${trunc(label, 20)}</text>`)}
       ${compact && [3, 0, -3].map((v) => html`<text x=${ml - 6} y=${y(v) + 4} text-anchor="end" font-size="11">${v > 0 ? '+3' : v === 0 ? '0' : '−3'}</text>`)}
       ${!compact && html`<g>
         <line x1=${x(total * 0.25)} x2=${x(total * 0.25)} y1=${mt} y2=${mt + ih} class="grid-line" />

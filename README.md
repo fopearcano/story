@@ -114,6 +114,15 @@ are fixed in [`docs/glossario-it.md`](docs/glossario-it.md).
 translation, and `npm test` fails on missing keys or data that drifted from
 the English version.
 
+## Themes
+
+Two looks, each in light and dark: the classic editorial one, and a minimal
+**terminal** style (monospace, square corners, green on black) toggled with
+the `>_` button in the top bar. The sun/moon button still switches light and
+dark; the terminal style starts dark unless you pick light. Chart colors in
+both styles are checked for contrast and color-blind separation against their
+backgrounds.
+
 ## The AI partner (optional)
 
 Everything works without AI. With a provider configured:

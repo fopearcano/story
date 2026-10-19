@@ -181,4 +181,6 @@ export default {
   'Print / save as PDF': 'Stampa / salva in PDF',
   'Danger zone': 'Zona pericolosa',
   'Delete this story': 'Elimina questa storia',
+  'Terminal style': 'Stile terminale',
+  'Classic style': 'Stile classico',
 };

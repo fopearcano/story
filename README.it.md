@@ -50,6 +50,14 @@ minitrama, antitrama, semina e raccolta…
 
 ![Analisi delle scene](docs/screenshots/it-scenes.png)
 
+## Temi
+
+Due stili, ciascuno chiaro e scuro: quello classico e uno **terminale**
+minimale (monospazio, angoli vivi, verde su nero), da attivare con il
+pulsante `>_` nella barra in alto. Il pulsante sole/luna passa ancora da
+chiaro a scuro; lo stile terminale parte scuro, a meno che tu non scelga il
+chiaro.
+
 ## Partner IA (facoltativo)
 
 Tutto funziona anche senza IA. Per attivarla, dai al server la chiave di un

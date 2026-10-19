@@ -73,34 +73,53 @@ function useRoute() {
   return route;
 }
 
+// Light/dark (or follow the system) and the visual style: the classic look or
+// the minimal terminal one. Terminal defaults to dark unless light is chosen.
 function useTheme() {
   const [theme, setTheme] = useState(safeStorage('storybuilder.theme', ''));
+  const [style, setStyle] = useState(safeStorage('storybuilder.style', ''));
   useEffect(() => {
     if (theme) document.documentElement.setAttribute('data-theme', theme);
     else document.documentElement.removeAttribute('data-theme');
     setSafeStorage('storybuilder.theme', theme || null);
   }, [theme]);
-  const dark = theme ? theme === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-  return [dark, () => setTheme(dark ? 'light' : 'dark')];
+  useEffect(() => {
+    if (style) document.documentElement.setAttribute('data-style', style);
+    else document.documentElement.removeAttribute('data-style');
+    setSafeStorage('storybuilder.style', style || null);
+  }, [style]);
+  const terminal = style === 'terminal';
+  const dark = theme ? theme === 'dark' : terminal || window.matchMedia('(prefers-color-scheme: dark)').matches;
+  return {
+    dark, terminal,
+    toggleTheme: () => setTheme(dark ? 'light' : 'dark'),
+    toggleStyle: () => setStyle(terminal ? '' : 'terminal'),
+  };
+}
+
+function ThemeButtons({ look }) {
+  return html`<button class=${cx('icon-btn', look.terminal && 'on')} onClick=${look.toggleStyle} aria-pressed=${look.terminal}
+      title=${look.terminal ? t('Classic style') : t('Terminal style')}><${Icon} name="terminal" /></button>
+    <button class="icon-btn" onClick=${look.toggleTheme} title=${t('Toggle theme')}><${Icon} name=${look.dark ? 'sun' : 'moon'} /></button>`;
 }
 
 function App() {
   const route = useRoute();
-  const [dark, toggleTheme] = useTheme();
+  const look = useTheme();
   const [ai, setAi] = useState({ envKey: false, model: '', clientKeyAllowed: true });
   const refreshAi = useCallback(() => api.aiStatus().then((s) => setAi({ ...s, rev: Date.now() })).catch(() => {}), []);
   useEffect(() => { refreshAi(); }, []);
 
   if (!route.storyId) {
     return html`<${AppCtx.Provider} value=${{ ai, refreshAi, openAi: () => {} }}>
-      <div class="topbar" style="justify-content:flex-end"><${LangSwitch} /><button class="icon-btn" onClick=${toggleTheme} title=${t('Toggle theme')}><${Icon} name=${dark ? 'sun' : 'moon'} /></button></div>
+      <div class="topbar" style="justify-content:flex-end"><${LangSwitch} /><${ThemeButtons} look=${look} /></div>
       <${HomeView} />
     </${AppCtx.Provider}>`;
   }
-  return html`<${StoryShell} route=${route} ai=${ai} refreshAi=${refreshAi} dark=${dark} toggleTheme=${toggleTheme} />`;
+  return html`<${StoryShell} route=${route} ai=${ai} refreshAi=${refreshAi} look=${look} />`;
 }
 
-function StoryShell({ route, ai, refreshAi, dark, toggleTheme }) {
+function StoryShell({ route, ai, refreshAi, look }) {
   const store = useStoryState(route.storyId);
   const [drawer, setDrawer] = useState({ open: false, focus: '', seed: '' });
   const [menu, setMenu] = useState(false);
@@ -157,7 +176,7 @@ function StoryShell({ route, ai, refreshAi, dark, toggleTheme }) {
             <button class="icon-btn" onClick=${store.undo} disabled=${!store.canUndo} title=${t('Undo (Ctrl+Z)')}><${Icon} name="undo" /></button>
             <button class="icon-btn" onClick=${store.redo} disabled=${!store.canRedo} title=${t('Redo (Ctrl+Shift+Z)')}><${Icon} name="redo" /></button>
             <${LangSwitch} />
-            <button class="icon-btn" onClick=${toggleTheme} title=${t('Toggle theme')}><${Icon} name=${dark ? 'sun' : 'moon'} /></button>
+            <${ThemeButtons} look=${look} />
             <button class="btn ai small" title=${t('AI partner')} aria-label=${t('AI partner')} onClick=${() => (drawer.open ? setDrawer({ ...drawer, open: false }) : openAi(route.view === 'characters' ? route.sub : ''))}><${Icon} name="spark" size=${14} /><span>${t('AI partner')}</span></button>
           </div>
           <main class="content"><${View} sub=${route.sub} /></main>
