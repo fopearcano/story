@@ -67,8 +67,10 @@ export class Storage {
     return s;
   }
 
-  async createStory(partial = {}) {
-    let s = newStory({ title: partial.title || 'Untitled Story', ...partial });
+  // `lang` picks the language of default names (title, central plot).
+  async createStory(partial = {}, lang = 'en') {
+    const { title, ...rest } = partial;
+    let s = newStory({ ...rest, ...(title && { title }) }, lang);
     // Never overwrite an existing story with an imported id.
     while (await this.#readJson(this.#file(this.storiesDir, s.id))) s = { ...s, id: newStory().id };
     return this.saveStory(s);

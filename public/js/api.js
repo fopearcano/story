@@ -1,7 +1,12 @@
 // HTTP client for the Story Builder server, including SSE streaming for AI.
 import { safeStorage } from './lib.js';
+import { lang } from './i18n.js';
 
 const KEY_STORAGE = 'storybuilder.anthropicKey';
+
+// The interface language goes with every request: the server uses it for the
+// worked example, default names, its messages and the AI partner's replies.
+const LANG_HEADER = { 'x-story-lang': lang };
 
 function aiHeaders() {
   const key = safeStorage(KEY_STORAGE, '');
@@ -11,7 +16,7 @@ function aiHeaders() {
 async function request(method, url, body) {
   const res = await fetch(url, {
     method,
-    headers: body !== undefined ? { 'Content-Type': 'application/json' } : {},
+    headers: body !== undefined ? { 'Content-Type': 'application/json', ...LANG_HEADER } : LANG_HEADER,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
@@ -43,7 +48,7 @@ export const aiKey = {
 export async function streamSse(url, body, onEvent, { signal } = {}) {
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', ...aiHeaders() },
+    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', ...LANG_HEADER, ...aiHeaders() },
     body: JSON.stringify(body),
     signal,
   });

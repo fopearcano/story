@@ -90,3 +90,18 @@ export const ASSIST_TASKS = {
     build: ({ digest }) => `Story so far:\n${digest}\n\nDesign or refine the cast as a solar system around the protagonist. For each existing principal, name the side of the protagonist they bring out and their attitude toward the story's central value; flag any two who would react the same way at a dinner table. Then propose two new roles that would delineate dimensions of the protagonist not yet dramatized.`,
   },
 };
+
+// Appended to a system prompt when the writer uses the app in another language,
+// so replies and proposals use the same terms as the interface. One variant per
+// language keeps each system prompt cacheable.
+const LANGUAGE_NOTES = {
+  it: `
+Language
+The writer is using Story Builder in Italian. Write every reply, question and option, and every text field of your proposals, in natural, idiomatic Italian; address the writer with "tu". Keep tool names, ids and JSON keys unchanged, and keep names and story text as the writer wrote them. Use the Italian terms the interface shows:
+Controlling Idea = idea guida (valore + causa); Counter-Idea = contro-idea; Premise = premessa; Inciting Incident = incidente scatenante; Progressive Complications = complicazioni progressive; Crisis = crisi; Climax = climax; Resolution = risoluzione; Major Dramatic Question = domanda drammatica principale; Obligatory Scene = scena obbligatoria; turning point = punto di svolta; beat = beat; sequence = sequenza; act = atto; the gap = lo scarto tra aspettativa e risultato; point of no return = punto di non ritorno; Characterization = caratterizzazione; True Character = vero carattere; mask / core = maschera / cuore; dimension = dimensione; conscious / unconscious desire = desiderio conscio / inconscio; object of desire = oggetto del desiderio; Spine = spina dorsale; willpower = forza di volontà; empathy = empatia; backstory = antefatto; choices under pressure = scelte sotto pressione; Cast Design = progettazione del cast; supporting role = personaggio secondario; forces of antagonism = forze antagoniste; Principle of Antagonism = principio dell'antagonismo; Positive / Contrary / Contradictory / Negation of the Negation = positivo / contrario / contraddittorio / negazione della negazione; inner / personal / extra-personal conflict = conflitto interiore / personale / extrapersonale; irreconcilable goods / lesser of two evils = beni inconciliabili / il minore dei due mali; Archplot / Miniplot / Antiplot = archetrama / minitrama / antitrama; subplot = sottotrama; setup / payoff = semina / raccolta; image system = sistema di immagini; subtext = sottotesto; exposition = esposizione; step outline = scaletta; treatment = trattamento; Maturation / Redemption / Education / Testing / Punitive / Disillusionment plot = trama di maturazione / di redenzione / di educazione / della prova / punitiva / della disillusione.
+`.trim(),
+};
+
+export function withLanguage(system, lang) {
+  return LANGUAGE_NOTES[lang] ? `${system}\n\n${LANGUAGE_NOTES[lang]}` : system;
+}

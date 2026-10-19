@@ -149,6 +149,24 @@ test('assist task streams text built from the story', async () => {
   assert.equal(body.tools, undefined);
 });
 
+test('Italian interface: Claude is asked to reply in Italian and errors are translated', async () => {
+  mock.reset();
+  script = [{ blocks: [{ text: 'Ciao!' }] }];
+  await readSse(await post('/api/ai/assist', { task: 'cast', storyId: 'christmas-carol' }, { 'x-story-lang': 'it' }));
+  assert.match(mock.requests[0].body.system, /using Story Builder in Italian/);
+  assert.match(mock.requests[0].body.system, /incidente scatenante/);
+
+  mock.reset();
+  script = [{ blocks: [{ text: 'Hello' }] }];
+  await readSse(await post('/api/ai/assist', { task: 'cast', storyId: 'christmas-carol' }));
+  assert.doesNotMatch(mock.requests[0].body.system, /in Italian/);
+
+  mock.reset();
+  script = [{ status: 401, errorType: 'authentication_error', message: 'invalid x-api-key' }];
+  const events = await readSse(await post('/api/ai/chat', { storyId: 'christmas-carol', message: 'Ciao' }, { 'x-story-lang': 'it' }));
+  assert.match(events.find((e) => e.event === 'error').data.message, /chiave API è stata rifiutata/);
+});
+
 test('unknown assist task and missing key are rejected cleanly', async () => {
   const bad = await post('/api/ai/assist', { task: 'nope', storyId: 'christmas-carol' });
   assert.equal(bad.status, 400);

@@ -7,6 +7,8 @@ book, every principle links back to the tool where you apply it, and a
 **Story Doctor** checks your draft against them. An **optional AI partner**,
 powered by Claude, helps you build characters.
 
+Available in **English** and **Italian** — *[leggi in italiano](README.it.md)*.
+
 ![Dashboard](docs/screenshots/dashboard.png)
 
 ## Quick start
@@ -77,6 +79,30 @@ and the Story Doctor share one model.
 
 ![Scene analysis](docs/screenshots/scenes.png)
 
+## Languages
+
+The interface comes in English and Italian. Switch with **EN / IT** in the top
+bar; the choice is remembered per browser, and the first visit follows the
+browser's language. In Italian everything is translated: the views, the
+Story Doctor, the Principles Library (each principle also shows McKee's
+original English term), the Markdown export and the worked example, which
+becomes *Canto di Natale*. The AI partner replies in the interface language
+and uses the same Italian terms as the app.
+
+Stories themselves aren't translated: you write them in whatever language you
+like. The first browser to open an empty library decides which example is
+added; **Copy the example** on the home screen always gives the one in the
+current language.
+
+To translate or change text: user-visible strings are wrapped in `t()`
+(English source text as the key), and Italian translations live in
+`public/js/i18n/it/`. Knowledge-base data and the worked example have Italian
+mirrors (`public/js/kb/it/`, `public/js/sample.it.js`). Terminology and style
+are fixed in [`docs/glossario-it.md`](docs/glossario-it.md).
+`node test/helpers/i18n-scan.js <files>` lists strings that still need a
+translation, and `npm test` fails on missing keys or data that drifted from
+the English version.
+
 ## The AI partner (optional)
 
 Everything works without AI. With a key configured:
@@ -133,10 +159,13 @@ public/index.html       App shell (Preact + htm, vendored, no build step)
 public/js/model.js      Story schema, normalization, derived data (acts, timeline…)
 public/js/doctor.js     Story Doctor diagnostics
 public/js/kb/           Knowledge base: principles, genres, value declensions, triangle
+                        (data in kb/en/ and kb/it/, selected by language)
+public/js/i18n.js       Interface language, t()/tn() translation helpers
+public/js/i18n/it/      Italian dictionary, one fragment per area of the app
 public/js/charts/       SVG infographics (value arc, triangle, rings, ladder, solar system…)
 public/js/views/        One module per group of views
 public/js/ai/           Chat drawer, assists, proposal validation/application
-public/js/sample.js     Worked example: A Christmas Carol
+public/js/sample.js     Worked example: A Christmas Carol (sample.it.js: Canto di Natale)
 test/                   node:test suites (model, API, AI agent against a mock API)
 ```
 
@@ -151,8 +180,9 @@ npm test
 ```
 
 The suite covers the model, the Story Doctor, proposal validation, export,
-the HTTP API, and the full AI agent loop against a local mock of the Claude
-streaming API. The agent tests check tool calls, validation, append-only
+the HTTP API, translations (missing keys, data parity with English, language
+handling on the server), and the full AI agent loop against a local mock of
+the Claude streaming API. The agent tests check tool calls, validation, append-only
 history, error handling and request shape; no key or network access is
 needed.
 

@@ -1,10 +1,16 @@
 // Worked example: Charles Dickens, "A Christmas Carol" (1843, public domain),
 // broken down with the McKee toolset so every view has something to show.
+// sample.it.js is the same analysis in Italian ("Canto di Natale").
 import { normalizeStory, newScene, newCharacter } from './model.js';
+import { sampleStoryIt } from './sample.it.js';
 
 const S = (id, p) => newScene({ id, ...p });
 
-export function sampleStory() {
+export function sampleStory(lang = 'en') {
+  return lang === 'it' ? sampleStoryIt() : sampleStoryEn();
+}
+
+function sampleStoryEn() {
   const scenes = [
     S('s01', {
       title: 'Christmas Eve at the counting-house', sequence: 'Humbug', location: 'Scrooge & Marley counting-house', time: 'Christmas Eve, afternoon', pages: 4, tempo: 3,

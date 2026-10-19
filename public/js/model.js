@@ -1,6 +1,7 @@
 // Story data model shared by the browser app, the server and the AI agent.
 // A story is plain JSON; normalizeStory() fills in any missing fields so older
 // files keep loading as the schema grows.
+import { lang, t, tl } from './i18n.js';
 
 export const SCHEMA_VERSION = 1;
 
@@ -11,55 +12,55 @@ export function uid(prefix = '') {
 }
 
 export const ROLES = [
-  { id: 'protagonist', label: 'Protagonist' },
-  { id: 'antagonist', label: 'Antagonist / force' },
-  { id: 'supporting', label: 'Supporting' },
-  { id: 'minor', label: 'Minor / bit' },
+  { id: 'protagonist', label: t('Protagonist') },
+  { id: 'antagonist', label: t('Antagonist / force') },
+  { id: 'supporting', label: t('Supporting') },
+  { id: 'minor', label: t('Minor / bit') },
 ];
 
 export const QUALITY_AXES = [
-  { id: 'loving', pos: 'Loving', neg: 'Cruel' },
-  { id: 'generous', pos: 'Generous', neg: 'Selfish' },
-  { id: 'strong', pos: 'Strong', neg: 'Weak' },
-  { id: 'honest', pos: 'Truthful', neg: 'Liar' },
-  { id: 'brave', pos: 'Courageous', neg: 'Cowardly' },
-  { id: 'loyal', pos: 'Loyal', neg: 'Disloyal' },
-  { id: 'willful', pos: 'Willful', neg: 'Will-less' },
+  { id: 'loving', pos: t('Loving'), neg: t('Cruel') },
+  { id: 'generous', pos: t('Generous'), neg: t('Selfish') },
+  { id: 'strong', pos: t('Strong'), neg: t('Weak') },
+  { id: 'honest', pos: t('Truthful'), neg: t('Liar') },
+  { id: 'brave', pos: t('Courageous'), neg: t('Cowardly') },
+  { id: 'loyal', pos: t('Loyal'), neg: t('Disloyal') },
+  { id: 'willful', pos: t('Willful'), neg: t('Will-less') },
 ];
 
 export const MARKERS = [
   { id: '', label: '—' },
-  { id: 'inciting', label: 'Inciting Incident', short: 'II' },
-  { id: 'seq-climax', label: 'Sequence climax', short: 'SQ' },
-  { id: 'mid-act', label: 'Mid-act climax', short: 'MA' },
-  { id: 'act-climax', label: 'Act climax', short: 'AC' },
-  { id: 'crisis', label: 'Crisis (+ penultimate climax)', short: 'CR' },
-  { id: 'climax', label: 'Story Climax', short: 'CL' },
-  { id: 'resolution', label: 'Resolution', short: 'RS' },
+  { id: 'inciting', label: t('Inciting Incident'), short: t('II') },
+  { id: 'seq-climax', label: t('Sequence climax'), short: t('SQ') },
+  { id: 'mid-act', label: t('Mid-act climax'), short: t('MA') },
+  { id: 'act-climax', label: t('Act climax'), short: t('AC') },
+  { id: 'crisis', label: t('Crisis (+ penultimate climax)'), short: t('CR') },
+  { id: 'climax', label: t('Story Climax'), short: t('CL') },
+  { id: 'resolution', label: t('Resolution'), short: t('RS') },
 ];
 
 export const MODES = [
-  { id: 'suspense', label: 'Suspense', hint: 'Audience knows what the characters know.' },
-  { id: 'mystery', label: 'Mystery', hint: 'Audience knows less than the characters.' },
-  { id: 'irony', label: 'Dramatic irony', hint: 'Audience knows more than the characters.' },
+  { id: 'suspense', label: t('Suspense'), hint: t('Audience knows what the characters know.') },
+  { id: 'mystery', label: t('Mystery'), hint: t('Audience knows less than the characters.') },
+  { id: 'irony', label: t('Dramatic irony'), hint: t('Audience knows more than the characters.') },
 ];
 
 export const EXPOSITION_METHODS = [
-  { id: 'ammunition', label: 'Dialogue as ammunition' },
-  { id: 'action', label: 'Shown in action' },
-  { id: 'revelation', label: 'Revelation (turns a scene)' },
-  { id: 'flashback', label: 'Dramatized flashback' },
-  { id: 'voiceover', label: 'Voice-over' },
-  { id: 'told', label: 'Told (on the nose)' },
+  { id: 'ammunition', label: t('Dialogue as ammunition') },
+  { id: 'action', label: t('Shown in action') },
+  { id: 'revelation', label: t('Revelation (turns a scene)') },
+  { id: 'flashback', label: t('Dramatized flashback') },
+  { id: 'voiceover', label: t('Voice-over') },
+  { id: 'told', label: t('Told (on the nose)') },
 ];
 
 export const PLOT_RELATIONS = [
-  { id: 'central', label: 'Central plot' },
-  { id: 'contradict', label: 'Contradicts the Controlling Idea (irony)' },
-  { id: 'resonate', label: 'Resonates the Controlling Idea (variation)' },
-  { id: 'setup', label: 'Sets up a late central plot' },
-  { id: 'complicate', label: 'Complicates the central plot' },
-  { id: '', label: 'Runs alongside (no relation)' },
+  { id: 'central', label: t('Central plot') },
+  { id: 'contradict', label: t('Contradicts the Controlling Idea (irony)') },
+  { id: 'resonate', label: t('Resonates the Controlling Idea (variation)') },
+  { id: 'setup', label: t('Sets up a late central plot') },
+  { id: 'complicate', label: t('Complicates the central plot') },
+  { id: '', label: t('Runs alongside (no relation)') },
 ];
 
 export const PALETTE = ['#e4572e', '#2e86ab', '#7a4fbf', '#2a9d8f', '#e9a03b', '#c2417f', '#4a7c59', '#8d6e63', '#3d5a80', '#b5651d'];
@@ -133,20 +134,23 @@ export function newScene(partial = {}) {
   };
 }
 
-export function newStory(partial = {}) {
+// `l` is the language for default names (the server passes the client's).
+export function newStory(partial = {}, l = lang) {
   const now = new Date().toISOString();
   return normalizeStory({
     id: uid(''),
-    title: 'Untitled Story',
+    title: tl(l, 'Untitled Story'),
     createdAt: now,
     updatedAt: now,
     ...partial,
-  });
+  }, l);
 }
 
-const DEFAULTS = () => ({
+const mainPlotline = (l) => ({ id: 'main', name: tl(l, 'Central plot'), relation: 'central', color: '#e4572e' });
+
+const DEFAULTS = (l) => ({
   schema: SCHEMA_VERSION,
-  title: 'Untitled Story',
+  title: tl(l, 'Untitled Story'),
   logline: '',
   author: '',
   premise: '',
@@ -169,7 +173,7 @@ const DEFAULTS = () => ({
   antagonism: { forces: [] },
   characters: [],
   inciting: { sceneId: '', event: '', cause: 'decision-protagonist', onscreen: true, shift: -1, reaction: '', mdq: '', obligatory: '', worst: '', best: '', notes: '' },
-  plotlines: [{ id: 'main', name: 'Central plot', relation: 'central', color: '#e4572e' }],
+  plotlines: [mainPlotline(l)],
   scenes: [],
   sequences: [],
   gaps: [],
@@ -197,10 +201,10 @@ function fill(target, defaults) {
   return out;
 }
 
-export function normalizeStory(raw) {
-  const s = fill(raw || {}, DEFAULTS());
+export function normalizeStory(raw, l = lang) {
+  const s = fill(raw || {}, DEFAULTS(l));
   if (!s.plotlines.length || !s.plotlines.some((p) => p.id === 'main')) {
-    s.plotlines = [{ id: 'main', name: 'Central plot', relation: 'central', color: '#e4572e' }, ...s.plotlines];
+    s.plotlines = [mainPlotline(l), ...s.plotlines];
   }
   const blankChar = newCharacter();
   s.characters = s.characters.map((c) => {
@@ -235,7 +239,7 @@ export function sceneLabel(story, id) {
   const i = sceneIndex(story, id);
   if (i < 0) return '';
   const s = story.scenes[i];
-  return `${i + 1}. ${s.title || 'Untitled scene'}`;
+  return `${i + 1}. ${s.title || t('Untitled scene')}`;
 }
 
 export function hasCharge(v) {
@@ -249,14 +253,14 @@ export function turnOf(scene) {
 
 // Positions along the telling, using scene page counts (1 page ~ 1 minute).
 export function timeline(story) {
-  let t = 0;
+  let at = 0;
   const items = story.scenes.map((s, i) => {
     const len = Math.max(0.25, Number(s.pages) || 2.5);
-    const item = { scene: s, index: i, start: t, end: t + len, len };
-    t += len;
+    const item = { scene: s, index: i, start: at, end: at + len, len };
+    at += len;
     return item;
   });
-  const total = t || 1;
+  const total = at || 1;
   for (const it of items) {
     it.startPct = it.start / total;
     it.endPct = it.end / total;
@@ -314,12 +318,19 @@ export function declension(story) {
   return story.values.declension;
 }
 
-export function controllingIdeaSentence(story) {
+// Value + Cause, joined with "because" unless the cause already starts with a conjunction.
+const CAUSE_JOIN = {
+  en: { starts: /^(because|when|if|since|as)\b/i, word: 'because ' },
+  it: { starts: /^(perché|poiché|quando|se|siccome|finché|dato che|grazie a)(?=[\s,]|$)/i, word: 'perché ' },
+};
+
+export function controllingIdeaSentence(story, l = lang) {
   const m = story.meaning;
   if (!m.value && !m.cause) return '';
   const value = (m.value || '…').trim();
   const cause = (m.cause || '…').trim();
-  return `${value.charAt(0).toUpperCase()}${value.slice(1)} ${/^(because|when|if|since|as)\b/i.test(cause) ? '' : 'because '}${cause}`.replace(/\s+/g, ' ').trim().replace(/([^.!?])$/, '$1.');
+  const join = CAUSE_JOIN[l] || CAUSE_JOIN.en;
+  return `${value.charAt(0).toUpperCase()}${value.slice(1)} ${join.starts.test(cause) ? '' : join.word}${cause}`.replace(/\s+/g, ' ').trim().replace(/([^.!?])$/, '$1.');
 }
 
 export function endingType(story) {
@@ -339,14 +350,14 @@ export function dimensionCount(c) {
 
 export function storyStats(story) {
   const locations = new Set(story.scenes.map((s) => (s.location || '').trim().toLowerCase()).filter(Boolean));
-  const t = timeline(story);
+  const tm = timeline(story);
   return {
     scenes: story.scenes.length,
     sequences: new Set(story.scenes.map((s) => s.sequence).filter(Boolean)).size,
     acts: acts(story).length,
     characters: story.characters.length,
     locations: locations.size,
-    pages: Math.round(t.total * 10) / 10,
+    pages: Math.round(tm.total * 10) / 10,
     turning: story.scenes.filter((s) => { const d = turnOf(s); return d !== null && d !== 0; }).length,
   };
 }
@@ -365,13 +376,13 @@ export function getIn(obj, path) {
 }
 
 // Compact digest of a story for prompts (keeps tokens down, stable key order).
-export function storyDigest(story, { includeScenes = true } = {}) {
+export function storyDigest(story, { includeScenes = true, lang: l = lang } = {}) {
   const prot = protagonist(story);
   const lines = [];
   lines.push(`Title: ${story.title}`);
   if (story.logline) lines.push(`Logline: ${story.logline}`);
   if (story.premise) lines.push(`Premise: ${story.premise}`);
-  const ci = controllingIdeaSentence(story);
+  const ci = controllingIdeaSentence(story, l);
   if (ci) lines.push(`Controlling Idea: ${ci} (charge: ${story.meaning.charge})`);
   if (story.meaning.counterIdea) lines.push(`Counter-Idea: ${story.meaning.counterIdea}`);
   if (story.genres.primary) lines.push(`Genre: ${story.genres.primary}${story.genres.secondary.length ? ' + ' + story.genres.secondary.join(', ') : ''}`);

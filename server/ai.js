@@ -5,10 +5,11 @@
 // Everything degrades gracefully when no API key is configured.
 import express from 'express';
 import Anthropic from '@anthropic-ai/sdk';
-import { CHARACTER_AGENT_SYSTEM, ASSIST_SYSTEM, ASSIST_TASKS } from './prompts.js';
+import { CHARACTER_AGENT_SYSTEM, ASSIST_SYSTEM, ASSIST_TASKS, withLanguage } from './prompts.js';
 import { validateCharacterProposal, validateSceneProposal } from '../public/js/ai/apply.js';
 import { storyDigest, uid, sceneIndex } from '../public/js/model.js';
 import { diagnose } from '../public/js/doctor.js';
+import { tl } from '../public/js/i18n.js';
 
 export const AI_MODEL = process.env.STORY_AI_MODEL || 'claude-opus-5-5';
 const EFFORT = process.env.STORY_AI_EFFORT || 'medium';
@@ -59,14 +60,15 @@ function openSse(res) {
   return (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
-function describeError(err) {
-  if (err instanceof Anthropic.AuthenticationError) return 'The API key was rejected. Check it in AI settings.';
-  if (err instanceof Anthropic.PermissionDeniedError) return 'This API key is not allowed to use the configured model.';
-  if (err instanceof Anthropic.NotFoundError) return `Model "${AI_MODEL}" was not found for this key.`;
-  if (err instanceof Anthropic.RateLimitError) return 'Rate limited by the API — wait a moment and try again.';
-  if (err instanceof Anthropic.BadRequestError) return `The API rejected the request: ${err.message}`;
-  if (err instanceof Anthropic.APIConnectionError) return 'Could not reach the Claude API (network error).';
-  if (err instanceof Anthropic.APIError) return `Claude API error ${err.status ?? ''}: ${err.message}`;
+// Messages shown to the writer, in their interface language.
+function describeError(err, lang) {
+  if (err instanceof Anthropic.AuthenticationError) return tl(lang, 'The API key was rejected. Check it in AI settings.');
+  if (err instanceof Anthropic.PermissionDeniedError) return tl(lang, 'This API key is not allowed to use the configured model.');
+  if (err instanceof Anthropic.NotFoundError) return tl(lang, 'Model "{model}" was not found for this key.', { model: AI_MODEL });
+  if (err instanceof Anthropic.RateLimitError) return tl(lang, 'Rate limited by the API — wait a moment and try again.');
+  if (err instanceof Anthropic.BadRequestError) return tl(lang, 'The API rejected the request: {message}', { message: err.message });
+  if (err instanceof Anthropic.APIConnectionError) return tl(lang, 'Could not reach the Claude API (network error).');
+  if (err instanceof Anthropic.APIError) return tl(lang, 'Claude API error {status}: {message}', { status: err.status ?? '', message: err.message });
   return err?.message || String(err);
 }
 
@@ -196,7 +198,7 @@ async function runTool(name, input, ctx) {
   switch (name) {
     case 'get_story_overview': {
       const charFindings = diagnose(story).filter((c) => c.group === 'character' && c.status !== 'pass').map((c) => `- ${c.title}: ${c.detail}`);
-      return { content: `${storyDigest(story)}\n\nCharacter diagnostics:\n${charFindings.join('\n') || '- none'}` };
+      return { content: `${storyDigest(story, { lang: ctx.lang })}\n\nCharacter diagnostics:\n${charFindings.join('\n') || '- none'}` };
     }
     case 'get_character': {
       const c = story.characters.find((x) => x.id === input.character_id);
@@ -234,8 +236,8 @@ class TruncatedToolInput extends Error {}
 
 // Streaming manual tool-use loop. Appends to chat.messages (append-only, full
 // content blocks including thinking/fallback blocks) and streams UI events.
-async function runAgent({ client, chat, storage, emit, signal }) {
-  const ctx = { chat, storage, emit };
+async function runAgent({ client, chat, storage, emit, signal, lang }) {
+  const ctx = { chat, storage, emit, lang };
   let jsonRetries = 0;
   for (let turn = 0; turn < MAX_AGENT_TURNS; turn++) {
     let message;
@@ -244,7 +246,7 @@ async function runAgent({ client, chat, storage, emit, signal }) {
         ...baseParams({ display: 'updates' }),
         max_tokens: 64000,
         cache_control: { type: 'ephemeral' },
-        system: CHARACTER_AGENT_SYSTEM,
+        system: withLanguage(CHARACTER_AGENT_SYSTEM, lang),
         tools: TOOLS,
         messages: chat.messages,
       }, { signal });
@@ -257,12 +259,12 @@ async function runAgent({ client, chat, storage, emit, signal }) {
       // A tool input that could not be parsed as JSON rejects the stream; re-issue
       // the same turn (nothing was appended). API errors are surfaced as-is.
       if (err instanceof Anthropic.APIError || signal.aborted || jsonRetries++ >= 2) throw err;
-      emit('status', { text: 'Retrying a malformed tool call…' });
+      emit('status', { text: tl(lang, 'Retrying a malformed tool call…') });
       continue;
     }
 
     if (message.stop_reason === 'refusal') {
-      emit('error', { message: 'Claude declined to continue this request.' });
+      emit('error', { message: tl(lang, 'Claude declined to continue this request.') });
       return;
     }
     const toolUses = message.content.filter((b) => b.type === 'tool_use');
@@ -285,7 +287,7 @@ async function runAgent({ client, chat, storage, emit, signal }) {
     chat.messages.push({ role: 'user', content: results });
     emit('status', { text: '' });
   }
-  emit('status', { text: 'Stopped after many tool calls; ask me to continue.' });
+  emit('status', { text: tl(lang, 'Stopped after many tool calls; ask me to continue.') });
 }
 
 function sceneText(story, sceneId) {
@@ -322,7 +324,7 @@ export function aiRouter(storage) {
   router.get('/chats/:id', async (req, res, next) => {
     try {
       const c = await storage.getChat(req.params.id);
-      if (!c) return res.status(404).json({ error: 'Chat not found' });
+      if (!c) return res.status(404).json({ error: tl(req.lang, 'Chat not found') });
       res.json({ id: c.id, storyId: c.storyId, characterId: c.characterId, title: c.title, display: c.display, proposals: c.proposals });
     } catch (e) { next(e); }
   });
@@ -334,9 +336,9 @@ export function aiRouter(storage) {
   router.post('/chats/:id/proposals/:pid', async (req, res, next) => {
     try {
       const c = await storage.getChat(req.params.id);
-      if (!c) return res.status(404).json({ error: 'Chat not found' });
+      if (!c) return res.status(404).json({ error: tl(req.lang, 'Chat not found') });
       const p = c.proposals.find((x) => x.id === req.params.pid);
-      if (!p) return res.status(404).json({ error: 'Proposal not found' });
+      if (!p) return res.status(404).json({ error: tl(req.lang, 'Proposal not found') });
       if (!['accepted', 'rejected'].includes(req.body.status)) return res.status(400).json({ error: 'status must be accepted or rejected' });
       p.status = req.body.status;
       p.reported = false;
@@ -352,9 +354,9 @@ export function aiRouter(storage) {
       const { storyId, chatId, characterId, message } = req.body || {};
       if (!message || typeof message !== 'string') return res.status(400).json({ error: 'message is required' });
       const story = await storage.getStory(String(storyId || ''));
-      if (!story) return res.status(404).json({ error: 'Story not found' });
+      if (!story) return res.status(404).json({ error: tl(req.lang, 'Story not found') });
       const client = clientFor(req, { maxRetries: 2 });
-      if (!client) return res.status(503).json({ error: 'AI is not configured. Set ANTHROPIC_API_KEY on the server or add a key in AI settings.' });
+      if (!client) return res.status(503).json({ error: tl(req.lang, 'AI is not configured. Set ANTHROPIC_API_KEY on the server or add a key in AI settings.') });
 
       let chat = chatId ? await storage.getChat(chatId) : null;
       if (chat && chat.storyId !== story.id) chat = null;
@@ -389,15 +391,15 @@ export function aiRouter(storage) {
       const controller = new AbortController();
       res.on('close', () => { if (!res.writableFinished) controller.abort(); });
       try {
-        await runAgent({ client, chat, storage, emit: record, signal: controller.signal });
+        await runAgent({ client, chat, storage, emit: record, signal: controller.signal, lang: req.lang });
       } catch (err) {
-        if (!controller.signal.aborted) record('error', { message: describeError(err) });
+        if (!controller.signal.aborted) record('error', { message: describeError(err, req.lang) });
       }
       await storage.saveChat(chat);
       emit('done', { chatId: chat.id });
       res.end();
     } catch (err) {
-      if (emit) { emit('error', { message: describeError(err) }); res.end(); } else next(err);
+      if (emit) { emit('error', { message: describeError(err, req.lang) }); res.end(); } else next(err);
     }
   });
 
@@ -408,13 +410,13 @@ export function aiRouter(storage) {
       const spec = ASSIST_TASKS[task];
       if (!spec) return res.status(400).json({ error: `Unknown task "${task}"` });
       const story = await storage.getStory(String(storyId || ''));
-      if (!story) return res.status(404).json({ error: 'Story not found' });
+      if (!story) return res.status(404).json({ error: tl(req.lang, 'Story not found') });
       const client = clientFor(req, { maxRetries: 2 });
-      if (!client) return res.status(503).json({ error: 'AI is not configured. Set ANTHROPIC_API_KEY on the server or add a key in AI settings.' });
+      if (!client) return res.status(503).json({ error: tl(req.lang, 'AI is not configured. Set ANTHROPIC_API_KEY on the server or add a key in AI settings.') });
 
       let taskInput = typeof input === 'string' ? input.slice(0, 4000) : '';
       if (task === 'story-doctor') taskInput = diagnose(story).filter((c) => c.status !== 'pass').map((c) => `- [${c.status}] ${c.title}: ${c.detail}`).join('\n') || 'No findings.';
-      const prompt = spec.build({ digest: storyDigest(story), scene: sceneId ? sceneText(story, sceneId) : '', input: taskInput });
+      const prompt = spec.build({ digest: storyDigest(story, { lang: req.lang }), scene: sceneId ? sceneText(story, sceneId) : '', input: taskInput });
 
       emit = openSse(res);
       const controller = new AbortController();
@@ -422,16 +424,16 @@ export function aiRouter(storage) {
       const stream = client.beta.messages.stream({
         ...baseParams({ display: 'omitted' }),
         max_tokens: 32000,
-        system: ASSIST_SYSTEM,
+        system: withLanguage(ASSIST_SYSTEM, req.lang),
         messages: [{ role: 'user', content: prompt }],
       }, { signal: controller.signal });
       stream.on('text', (delta) => emit('text', { text: delta }));
       const message = await stream.finalMessage();
-      if (message.stop_reason === 'refusal') emit('error', { message: 'Claude declined this request.' });
+      if (message.stop_reason === 'refusal') emit('error', { message: tl(req.lang, 'Claude declined this request.') });
       emit('done', {});
       res.end();
     } catch (err) {
-      if (emit) { emit('error', { message: describeError(err) }); res.end(); } else next(err);
+      if (emit) { emit('error', { message: describeError(err, req.lang) }); res.end(); } else next(err);
     }
   });
 
